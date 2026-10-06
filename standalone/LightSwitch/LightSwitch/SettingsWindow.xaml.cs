@@ -95,6 +95,7 @@ public sealed partial class SettingsWindow : Window
 
         UpdateHotkeyText();
         UpdateModePanelVisibility();
+        UpdateSunTimesDisplay();
     }
 
     private void OnModeChanged(object sender, SelectionChangedEventArgs e)
@@ -173,6 +174,54 @@ public sealed partial class SettingsWindow : Window
         finally
         {
             GetLocationButton.IsEnabled = true;
+        }
+    }
+
+    private void OnSunInputsChanged(object sender, TextChangedEventArgs e) => UpdateSunTimesDisplay();
+
+    private void OnSunOffsetChanged(NumberBox sender, NumberBoxValueChangedEventArgs args) => UpdateSunTimesDisplay();
+
+    // Show today's computed sunrise/sunset (and the effective times after offsets).
+    private void UpdateSunTimesDisplay()
+    {
+        if (SunTimesText == null)
+            return;
+
+        var latText = LatitudeBox.Text.Trim();
+        var lonText = LongitudeBox.Text.Trim();
+
+        if (latText.Length == 0 || lonText.Length == 0)
+        {
+            SunTimesText.Text = "经纬度留空：保存后将自动使用系统定位计算。";
+            return;
+        }
+
+        bool latOk = double.TryParse(latText, System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture, out double lat) && lat >= -90 && lat <= 90;
+        bool lonOk = double.TryParse(lonText, System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture, out double lon) && lon >= -180 && lon <= 180;
+
+        if (!latOk || !lonOk)
+        {
+            SunTimesText.Text = "经纬度无效，无法计算日出日落时间。";
+            return;
+        }
+
+        var now = DateTime.Now;
+        var t = SunCalculator.Calculate(lat, lon, now.Year, now.Month, now.Day);
+        int rise = t.SunriseHour * 60 + t.SunriseMinute;
+        int set = t.SunsetHour * 60 + t.SunsetMinute;
+        int riseEff = rise + (double.IsNaN(SunriseOffsetBox.Value) ? 0 : (int)SunriseOffsetBox.Value);
+        int setEff = set + (double.IsNaN(SunsetOffsetBox.Value) ? 0 : (int)SunsetOffsetBox.Value);
+
+        SunTimesText.Text = riseEff == rise && setEff == set
+            ? $"今日日出 {Fmt(rise)}，日落 {Fmt(set)}"
+            : $"今日日出 {Fmt(rise)}，日落 {Fmt(set)}（含偏移：{Fmt(riseEff)} / {Fmt(setEff)}）";
+
+        static string Fmt(int m)
+        {
+            m = ((m % 1440) + 1440) % 1440;
+            return $"{m / 60:D2}:{m % 60:D2}";
         }
     }
 

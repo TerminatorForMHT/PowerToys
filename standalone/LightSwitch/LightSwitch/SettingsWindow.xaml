@@ -42,12 +42,13 @@
                     </StackPanel>
 
                     <StackPanel x:Name="SunPanel" Spacing="8" Visibility="Collapsed">
-                        <TextBox x:Name="LatitudeBox" Header="纬度" PlaceholderText="留空则自动使用系统定位" />
-                        <TextBox x:Name="LongitudeBox" Header="经度" PlaceholderText="留空则自动使用系统定位" />
+                        <TextBox x:Name="LatitudeBox" Header="纬度" PlaceholderText="留空则自动使用系统定位" TextChanged="OnSunInputsChanged" />
+                        <TextBox x:Name="LongitudeBox" Header="经度" PlaceholderText="留空则自动使用系统定位" TextChanged="OnSunInputsChanged" />
                         <Button x:Name="GetLocationButton" Content="使用系统定位" HorizontalAlignment="Left" Click="OnGetLocationClick" />
+                        <TextBlock x:Name="SunTimesText" Style="{ThemeResource BodyStrongTextBlockStyle}" TextWrapping="Wrap" />
                         <Grid ColumnDefinitions="*,8,*">
-                            <NumberBox x:Name="SunriseOffsetBox" Header="日出偏移（分钟）" Minimum="-720" Maximum="720" SpinButtonPlacementMode="Inline" />
-                            <NumberBox x:Name="SunsetOffsetBox" Grid.Column="2" Header="日落偏移（分钟）" Minimum="-720" Maximum="720" SpinButtonPlacementMode="Inline" />
+                            <NumberBox x:Name="SunriseOffsetBox" Header="日出偏移（分钟）" Minimum="-720" Maximum="720" SpinButtonPlacementMode="Inline" ValueChanged="OnSunOffsetChanged" />
+                            <NumberBox x:Name="SunsetOffsetBox" Grid.Column="2" Header="日落偏移（分钟）" Minimum="-720" Maximum="720" SpinButtonPlacementMode="Inline" ValueChanged="OnSunOffsetChanged" />
                         </Grid>
                     </StackPanel>
 
