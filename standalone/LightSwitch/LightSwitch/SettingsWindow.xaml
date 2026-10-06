@@ -1,0 +1,57 @@
+<Window
+    x:Class="LightSwitch.SettingsWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Grid x:Name="RootGrid" Padding="24">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel Spacing="16">
+                <TextBlock Text="LightSwitch 设置" Style="{ThemeResource SubtitleTextBlockStyle}" />
+
+                <TextBlock Text="计划模式" />
+                <ComboBox x:Name="ModeCombo" HorizontalAlignment="Stretch" SelectionChanged="OnModeChanged">
+                    <ComboBoxItem Content="关闭" />
+                    <ComboBoxItem Content="固定时间" />
+                    <ComboBoxItem Content="日出到日落" />
+                    <ComboBoxItem Content="跟随夜览" />
+                </ComboBox>
+
+                <StackPanel x:Name="FixedHoursPanel" Spacing="8" Visibility="Collapsed">
+                    <Grid ColumnDefinitions="*,8,*">
+                        <TimePicker x:Name="LightTimePicker" Header="浅色开始时间" />
+                        <TimePicker x:Name="DarkTimePicker" Grid.Column="2" Header="深色开始时间" />
+                    </Grid>
+                </StackPanel>
+
+                <StackPanel x:Name="SunPanel" Spacing="8" Visibility="Collapsed">
+                    <TextBox x:Name="LatitudeBox" Header="纬度" />
+                    <TextBox x:Name="LongitudeBox" Header="经度" />
+                    <Grid ColumnDefinitions="*,8,*">
+                        <NumberBox x:Name="SunriseOffsetBox" Header="日出偏移（分钟）" Minimum="-720" Maximum="720" SpinButtonPlacementMode="Inline" />
+                        <NumberBox x:Name="SunsetOffsetBox" Grid.Column="2" Header="日落偏移（分钟）" Minimum="-720" Maximum="720" SpinButtonPlacementMode="Inline" />
+                    </Grid>
+                </StackPanel>
+
+                <TextBlock x:Name="NightLightHint" Text="跟随系统夜览状态，无需额外设置。" Visibility="Collapsed" />
+
+                <TextBlock Text="应用范围" />
+                <ToggleSwitch x:Name="SystemToggle" Header="系统主题（任务栏、开始菜单）" />
+                <ToggleSwitch x:Name="AppsToggle" Header="应用主题" />
+
+                <TextBlock Text="切换快捷键" />
+                <Grid ColumnDefinitions="*,8,Auto">
+                    <TextBox x:Name="HotkeyCapture" IsReadOnly="True" PlaceholderText="点击后按下快捷键" KeyDown="OnHotkeyKeyDown" />
+                    <Button x:Name="ClearHotkeyButton" Grid.Column="2" Content="清除" Click="OnClearHotkeyClick" />
+                </Grid>
+
+                <Grid ColumnDefinitions="*,8,*" Margin="0,12,0,0">
+                    <Button Content="保存" Style="{ThemeResource AccentButtonStyle}" Click="OnSaveClick" />
+                    <Button Content="取消" Grid.Column="2" Click="OnCancelClick" />
+                </Grid>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Window>

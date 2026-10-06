@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Application
+    x:Class="LightSwitch.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:tb="using:H.NotifyIcon">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <XamlUICommand x:Key="ToggleThemeCommand" Label="切换浅色/深色" />
+            <XamlUICommand x:Key="ModeOffCommand" Label="关闭" />
+            <XamlUICommand x:Key="ModeFixedCommand" Label="固定时间" />
+            <XamlUICommand x:Key="ModeSunCommand" Label="日出到日落" />
+            <XamlUICommand x:Key="ModeNightLightCommand" Label="跟随夜览" />
+            <XamlUICommand x:Key="OpenSettingsCommand" Label="设置..." />
+            <XamlUICommand x:Key="ExitCommand" Label="退出" />
+
+            <tb:TaskbarIcon
+                x:Key="TrayIcon"
+                ToolTipText="LightSwitch - 主题计划"
+                ContextMenuMode="SecondWindow"
+                NoLeftClickDelay="True"
+                IconSource="\Assets\LightSwitch.ico"
+                DoubleClickCommand="{StaticResource ToggleThemeCommand}">
+                <tb:TaskbarIcon.ContextFlyout>
+                    <MenuFlyout x:Name="TrayMenuFlyout">
+                        <MenuFlyoutItem Command="{StaticResource ToggleThemeCommand}" />
+                        <MenuFlyoutSubItem Text="模式">
+                            <RadioMenuFlyoutItem x:Name="TrayModeOff" GroupName="ScheduleMode" Command="{StaticResource ModeOffCommand}" />
+                            <RadioMenuFlyoutItem x:Name="TrayModeFixed" GroupName="ScheduleMode" Command="{StaticResource ModeFixedCommand}" />
+                            <RadioMenuFlyoutItem x:Name="TrayModeSun" GroupName="ScheduleMode" Command="{StaticResource ModeSunCommand}" />
+                            <RadioMenuFlyoutItem x:Name="TrayModeNightLight" GroupName="ScheduleMode" Command="{StaticResource ModeNightLightCommand}" />
+                        </MenuFlyoutSubItem>
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutItem Command="{StaticResource OpenSettingsCommand}" />
+                        <MenuFlyoutSeparator />
+                        <MenuFlyoutItem Command="{StaticResource ExitCommand}" />
+                    </MenuFlyout>
+                </tb:TaskbarIcon.ContextFlyout>
+            </tb:TaskbarIcon>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

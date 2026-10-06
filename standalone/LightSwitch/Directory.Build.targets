@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Intentionally empty: stops MSBuild from importing the PowerToys repo-level
+     Directory.Build.targets so this standalone project stays decoupled. -->
+<Project />
