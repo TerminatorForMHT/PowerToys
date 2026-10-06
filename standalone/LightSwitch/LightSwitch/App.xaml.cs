@@ -18,6 +18,10 @@ public partial class App : Application
     private SchedulerService? _scheduler;
     private HotkeyService? _hotkey;
 
+    // RegisterHotKey/UnregisterHotKey must run on the thread that created the
+    // hidden hotkey window, so settings-change handlers marshal back here.
+    private Microsoft.UI.Dispatching.DispatcherQueue? _uiDispatcher;
+
     public App()
     {
         InitializeComponent();
@@ -39,6 +43,8 @@ public partial class App : Application
 
         Logger.Init("LightSwitch");
         Logger.Info("[App] LightSwitch starting...");
+
+        _uiDispatcher = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
 
         // Ensure settings.json exists so the file watcher has something to watch.
         SettingsService.Instance.Save();
@@ -75,7 +81,10 @@ public partial class App : Application
 
     private void OnSettingsChanged(object? sender, EventArgs e)
     {
-        _hotkey?.Apply(SettingsService.Instance.Snapshot.Hotkey);
+        // Changed may fire on a timer-pool thread (file watcher) — hop to the UI thread.
+        // _uiDispatcher is captured on the UI thread in OnLaunched.
+        if (_uiDispatcher is { } dq)
+            dq.TryEnqueue(() => _hotkey?.Apply(SettingsService.Instance.Snapshot.Hotkey));
     }
 
     private static void SetMode(ScheduleMode mode)
