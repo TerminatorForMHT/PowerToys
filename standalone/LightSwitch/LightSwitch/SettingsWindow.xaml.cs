@@ -147,6 +147,35 @@ public sealed partial class SettingsWindow : Window
         UpdateHotkeyText();
     }
 
+    private async void OnGetLocationClick(object sender, RoutedEventArgs e)
+    {
+        GetLocationButton.IsEnabled = false;
+        try
+        {
+            var loc = await LocationService.TryGetLocationAsync();
+            if (loc is { } l)
+            {
+                LatitudeBox.Text = l.Latitude.ToString("F6", System.Globalization.CultureInfo.InvariantCulture);
+                LongitudeBox.Text = l.Longitude.ToString("F6", System.Globalization.CultureInfo.InvariantCulture);
+            }
+            else
+            {
+                var dlg = new ContentDialog
+                {
+                    Title = "无法获取位置",
+                    Content = "请在 设置 → 隐私和安全性 → 位置 中开启定位服务，或手动填写经纬度。",
+                    CloseButtonText = "确定",
+                    XamlRoot = Content.XamlRoot,
+                };
+                await dlg.ShowAsync();
+            }
+        }
+        finally
+        {
+            GetLocationButton.IsEnabled = true;
+        }
+    }
+
     private void OnClearHotkeyClick(object sender, RoutedEventArgs e)
     {
         _hotkey = new HotkeyConfig();
@@ -210,19 +239,44 @@ public sealed partial class SettingsWindow : Window
 
         if (cfg.ScheduleMode == ScheduleMode.SunsetToSunrise)
         {
-            bool latOk = double.TryParse(latText, out double lat) && lat >= -90 && lat <= 90;
-            bool lonOk = double.TryParse(lonText, out double lon) && lon >= -180 && lon <= 180;
-            if (!latOk || !lonOk)
+            // Empty fields are allowed — the scheduler will fall back to the system location
+            bool latEmpty = latText.Length == 0;
+            bool lonEmpty = lonText.Length == 0;
+            if (latEmpty != lonEmpty)
             {
                 var dlg = new ContentDialog
                 {
-                    Title = "无效的经纬度",
-                    Content = "请检查纬度和经度：纬度应在 -90 到 90 之间，经度应在 -180 到 180 之间。",
+                    Title = "经纬度不完整",
+                    Content = "纬度和经度需要同时填写，或同时留空以使用系统定位。",
                     CloseButtonText = "确定",
                     XamlRoot = Content.XamlRoot,
                 };
                 await dlg.ShowAsync();
                 return;
+            }
+
+            if (!latEmpty)
+            {
+                bool latOk = double.TryParse(latText, out double lat) && lat >= -90 && lat <= 90;
+                bool lonOk = double.TryParse(lonText, out double lon) && lon >= -180 && lon <= 180;
+                if (!latOk || !lonOk)
+                {
+                    var dlg = new ContentDialog
+                    {
+                        Title = "无效的经纬度",
+                        Content = "请检查纬度和经度：纬度应在 -90 到 90 之间，经度应在 -180 到 180 之间。",
+                        CloseButtonText = "确定",
+                        XamlRoot = Content.XamlRoot,
+                    };
+                    await dlg.ShowAsync();
+                    return;
+                }
+            }
+            else
+            {
+                // Persist the "unset" sentinel so the scheduler knows to use system location
+                latText = "0.0";
+                lonText = "0.0";
             }
         }
 

@@ -13,9 +13,19 @@ internal static class NightLightService
         try
         {
             using var key = Registry.CurrentUser.OpenSubKey(NightLightRegistryPath);
-            // We need bytes 23 and 24, so the blob must be at least 25 bytes
+            // We need bytes up to 24, so the blob must be at least 25 bytes
             if (key?.GetValue("Data") is byte[] data && data.Length >= 25)
+            {
+                // Windows 11 layout: byte 18 is the state marker (0x15 = on, 0x12 = off);
+                // bytes 23/24 read 0x10/0x00 in BOTH states and cannot discriminate.
+                if (data[18] == 0x15)
+                    return true;
+                if (data[18] == 0x12)
+                    return false;
+
+                // Older Windows 10 layout fallback: 0x10/0x00 at 23/24 means on.
                 return data[23] == 0x10 && data[24] == 0x00;
+            }
         }
         catch
         {

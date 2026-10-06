@@ -46,5 +46,7 @@
   <Capabilities>
     <!-- Full trust is required for global hotkeys, registry theme switching and HWND_BROADCAST -->
     <rescap:Capability Name="runFullTrust" />
+    <!-- Location is used to compute local sunrise/sunset times -->
+    <Capability Name="location" />
   </Capabilities>
 </Package>

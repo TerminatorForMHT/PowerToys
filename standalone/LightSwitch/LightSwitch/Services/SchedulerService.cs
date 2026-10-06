@@ -25,6 +25,7 @@ internal sealed class SchedulerService : IDisposable
 
     private NightLightWatcher? _nightLightWatcher;
     private bool _running;
+    private DateTime _lastLocationAttemptUtc = DateTime.MinValue;
 
     public void Start()
     {
@@ -235,7 +236,11 @@ internal sealed class SchedulerService : IDisposable
             bool needNightLight = snap.ScheduleMode == ScheduleMode.FollowNightLight;
 
             if (needNightLight && _nightLightWatcher == null)
+            {
                 StartNightLightWatcher();
+                // Re-sync: cached state may be stale if night light toggled while not watching
+                _isNightLightActive = NightLightService.IsNightLightEnabled();
+            }
             else if (!needNightLight && _nightLightWatcher != null)
             {
                 _nightLightWatcher.Dispose();
@@ -325,6 +330,32 @@ internal sealed class SchedulerService : IDisposable
             {
                 _effectiveLightMinutes = snap.LightTime + snap.SunriseOffset;
                 _effectiveDarkMinutes = snap.DarkTime + snap.SunsetOffset;
+            }
+        }
+        else if (snap.ScheduleMode == ScheduleMode.SunsetToSunrise)
+        {
+            // No coordinates configured — fetch from the system location service
+            // (the same source the Windows Night Light schedule uses), throttled to once per hour.
+            if (DateTime.UtcNow - _lastLocationAttemptUtc > TimeSpan.FromHours(1))
+            {
+                _lastLocationAttemptUtc = DateTime.UtcNow;
+                Logger.Info("[Scheduler] No coordinates configured; requesting system location...");
+                _ = Task.Run(async () =>
+                {
+                    var loc = await LocationService.TryGetLocationAsync();
+                    if (loc is { } l)
+                    {
+                        var cfg = SettingsService.Instance.Snapshot;
+                        // Only fill in if the user still hasn't set coordinates
+                        if (!CoordinatesAreValid(cfg.Latitude, cfg.Longitude))
+                        {
+                            cfg.Latitude = l.Latitude.ToString("F6", System.Globalization.CultureInfo.InvariantCulture);
+                            cfg.Longitude = l.Longitude.ToString("F6", System.Globalization.CultureInfo.InvariantCulture);
+                            SettingsService.Instance.Update(cfg);
+                            Logger.Info($"[Scheduler] Location acquired from system: {l.Latitude:F4}, {l.Longitude:F4}");
+                        }
+                    }
+                });
             }
         }
         else if (snap.ScheduleMode == ScheduleMode.FixedHours)
