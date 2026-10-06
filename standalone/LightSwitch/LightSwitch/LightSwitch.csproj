@@ -37,6 +37,6 @@
 
   <ItemGroup>
     <Manifest Include="$(ApplicationManifest)" />
-    <Content Include="Assets\*" />
+    <Content Include="Assets\*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
