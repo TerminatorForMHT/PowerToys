@@ -321,10 +321,23 @@ internal sealed class SchedulerService : IDisposable
                 double lon = double.Parse(snap.Longitude);
                 var dt = DateTime.Now;
                 var times = SunCalculator.Calculate(lat, lon, dt.Year, dt.Month, dt.Day);
-                _effectiveLightMinutes = times.SunriseHour * 60 + times.SunriseMinute + snap.SunriseOffset;
-                _effectiveDarkMinutes = times.SunsetHour * 60 + times.SunsetMinute + snap.SunsetOffset;
+                int riseMinutes = times.SunriseHour * 60 + times.SunriseMinute;
+                int setMinutes = times.SunsetHour * 60 + times.SunsetMinute;
+                _effectiveLightMinutes = riseMinutes + snap.SunriseOffset;
+                _effectiveDarkMinutes = setMinutes + snap.SunsetOffset;
                 _lastEvaluatedDay = today;
-                Logger.Info("[Scheduler] Updated sun times from coordinates.");
+                Logger.Info($"[Scheduler] Updated sun times from coordinates: sunrise {times.SunriseHour:D2}:{times.SunriseMinute:D2}, sunset {times.SunsetHour:D2}:{times.SunsetMinute:D2}.");
+
+                // Persist the computed times like PowerToys does, so the settings
+                // UI shows the actual sunrise/sunset instead of stale defaults.
+                // ReplaceConfig avoids firing Changed (we ARE the change).
+                if (snap.LightTime != riseMinutes || snap.DarkTime != setMinutes)
+                {
+                    var cfg = SettingsService.Instance.Snapshot;
+                    cfg.LightTime = riseMinutes;
+                    cfg.DarkTime = setMinutes;
+                    SettingsService.Instance.ReplaceConfig(cfg);
+                }
             }
             else
             {

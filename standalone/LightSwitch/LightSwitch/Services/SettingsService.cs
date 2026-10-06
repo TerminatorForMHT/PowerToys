@@ -206,6 +206,18 @@ public sealed class SettingsService : IDisposable
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
+    // Same as Update but does NOT fire Changed — used when the scheduler itself
+    // mutates derived values (e.g. sun times) to avoid recursive loops.
+    public void ReplaceConfig(LightSwitchConfig newConfig)
+    {
+        lock (_sync)
+        {
+            _config = newConfig.Clone();
+        }
+
+        Save();
+    }
+
     // Watch settings.json for external edits and reload with a 1s debounce.
     public void StartWatcher()
     {

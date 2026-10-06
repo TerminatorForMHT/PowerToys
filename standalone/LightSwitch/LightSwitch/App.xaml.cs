@@ -84,21 +84,17 @@ public partial class App : Application
         // Changed may fire on a timer-pool thread (file watcher) — hop to the UI thread.
         // _uiDispatcher is captured on the UI thread in OnLaunched.
         if (_uiDispatcher is { } dq)
-            dq.TryEnqueue(() => _hotkey?.Apply(SettingsService.Instance.Snapshot.Hotkey));
-    }
-
-    private static void SetMode(ScheduleMode mode)
-    {
-        var cfg = SettingsService.Instance.Snapshot;
-        cfg.ScheduleMode = mode;
-        SettingsService.Instance.Update(cfg);
-        Logger.Info($"[App] Schedule mode set to {ScheduleModeNames.ToName(mode)} via tray.");
+            dq.TryEnqueue(() =>
+            {
+                _hotkey?.Apply(SettingsService.Instance.Snapshot.Hotkey);
+                UpdateTrayModeChecks();
+            });
     }
 
     // Sync the checked radio item in the tray menu with current settings.
-    private void OnTrayMenuOpening(object sender, object e)
+    private void UpdateTrayModeChecks()
     {
-        if (sender is not MenuFlyout flyout)
+        if (_trayIcon?.ContextFlyout is not MenuFlyout flyout || flyout.Items.Count < 2)
             return;
 
         var mode = SettingsService.Instance.Snapshot.ScheduleMode;
@@ -120,6 +116,16 @@ public partial class App : Application
                 }
             }
         }
+    }
+
+    private void OnTrayMenuOpening(object sender, object e) => UpdateTrayModeChecks();
+
+    private static void SetMode(ScheduleMode mode)
+    {
+        var cfg = SettingsService.Instance.Snapshot;
+        cfg.ScheduleMode = mode;
+        SettingsService.Instance.Update(cfg);
+        Logger.Info($"[App] Schedule mode set to {ScheduleModeNames.ToName(mode)} via tray.");
     }
 
     private void ShowSettingsWindow()
