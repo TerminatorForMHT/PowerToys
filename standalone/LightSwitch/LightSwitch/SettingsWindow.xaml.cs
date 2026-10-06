@@ -26,11 +26,19 @@ public sealed partial class SettingsWindow : Window
         if (MicaController.IsSupported())
             SystemBackdrop = new MicaBackdrop();
 
+        // Fluent custom title bar: extend content and register the drag area
+        ExtendsContentIntoTitleBar = true;
+        SetTitleBar(TitleBarGrid);
+
         var presenter = OverlappedPresenter.Create();
         presenter.IsResizable = false;
         presenter.IsMaximizable = false;
         AppWindow.SetPresenter(presenter);
         AppWindow.Resize(new SizeInt32(520, 760));
+
+        var titleBar = AppWindow.TitleBar;
+        titleBar.ButtonBackgroundColor = Microsoft.UI.Colors.Transparent;
+        titleBar.ButtonInactiveBackgroundColor = Microsoft.UI.Colors.Transparent;
 
         _uiSettings.ColorValuesChanged += OnColorValuesChanged;
         Closed += (_, _) => _uiSettings.ColorValuesChanged -= OnColorValuesChanged;
@@ -48,6 +56,18 @@ public sealed partial class SettingsWindow : Window
     {
         bool isLight = ThemeService.GetCurrentAppsTheme();
         RootGrid.RequestedTheme = isLight ? ElementTheme.Light : ElementTheme.Dark;
+
+        // Theme the caption buttons (min/max/close) to match
+        var foreground = isLight ? Windows.UI.Color.FromArgb(255, 27, 27, 27) : Windows.UI.Color.FromArgb(255, 255, 255, 255);
+        var hoverBackground = isLight ? Windows.UI.Color.FromArgb(25, 0, 0, 0) : Windows.UI.Color.FromArgb(25, 255, 255, 255);
+        var pressedBackground = isLight ? Windows.UI.Color.FromArgb(51, 0, 0, 0) : Windows.UI.Color.FromArgb(51, 255, 255, 255);
+
+        var titleBar = AppWindow.TitleBar;
+        titleBar.ButtonForegroundColor = foreground;
+        titleBar.ButtonHoverForegroundColor = foreground;
+        titleBar.ButtonPressedForegroundColor = foreground;
+        titleBar.ButtonHoverBackgroundColor = hoverBackground;
+        titleBar.ButtonPressedBackgroundColor = pressedBackground;
     }
 
     private void LoadFromSettings()

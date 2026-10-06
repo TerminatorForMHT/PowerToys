@@ -53,8 +53,8 @@ public sealed class LightSwitchConfig
     public int DarkTime { get; set; } = 20 * 60;  // minutes since midnight
     public int SunriseOffset { get; set; }
     public int SunsetOffset { get; set; }
-    public bool ChangeSystem { get; set; }
-    public bool ChangeApps { get; set; }
+    public bool ChangeSystem { get; set; } = true;
+    public bool ChangeApps { get; set; } = true;
     public HotkeyConfig Hotkey { get; set; } = new() { Win = true, Ctrl = true, Shift = true, Alt = false, Key = 'D' };
 
     public LightSwitchConfig Clone()
