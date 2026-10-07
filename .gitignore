@@ -11,5 +11,10 @@ obj/
 *.log
 *.binlog
 
+## Packaging artifacts and signing keys (never commit private keys)
+AppPackages/
+*.pfx
+*.pvk
+
 ## LightSwitch runtime logs
 logs/
