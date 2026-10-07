@@ -21,7 +21,7 @@
             </StackPanel>
         </Grid>
 
-        <Grid Grid.Row="1" Padding="24,24,28,24">
+        <Grid Grid.Row="1" Padding="24,24,10,24">
             <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <!-- Right margin reserves a lane for the overlay scrollbar so it
                      never covers the controls (Fluent scrollbars float on top). -->

@@ -32,7 +32,7 @@ public sealed partial class SettingsWindow : Window
 
         var presenter = OverlappedPresenter.Create();
         presenter.IsResizable = false;
-        presenter.IsMaximizable = false;
+        presenter.IsMaximizable = true;
         AppWindow.SetPresenter(presenter);
         AppWindow.Resize(new SizeInt32(520, 760));
 
