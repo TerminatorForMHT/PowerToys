@@ -9,6 +9,7 @@
     <Grid x:Name="RootGrid">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -21,14 +22,16 @@
             </StackPanel>
         </Grid>
 
-        <Grid Grid.Row="1" Padding="24,24,10,24">
+        <!-- Page header -->
+        <TextBlock Grid.Row="1" Text="设置" Padding="24,8,24,16"
+                   Style="{ThemeResource TitleTextBlockStyle}" />
+
+        <Grid Grid.Row="2" Padding="24,0,10,24">
             <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <!-- Right margin reserves a lane for the overlay scrollbar so it
                      never covers the controls (Fluent scrollbars float on top). -->
                 <StackPanel Spacing="16" Margin="0,0,12,0">
-                    <TextBlock Text="LightSwitch 设置" Style="{ThemeResource SubtitleTextBlockStyle}" />
-
-                    <TextBlock Text="计划模式" />
+                    <TextBlock Text="计划模式" FontWeight="SemiBold" />
                     <ComboBox x:Name="ModeCombo" HorizontalAlignment="Stretch" SelectionChanged="OnModeChanged">
                         <ComboBoxItem Content="关闭" />
                         <ComboBoxItem Content="固定时间" />
@@ -56,11 +59,11 @@
 
                     <TextBlock x:Name="NightLightHint" Text="跟随系统夜览状态，无需额外设置。" Visibility="Collapsed" />
 
-                    <TextBlock Text="应用范围" />
+                    <TextBlock Text="应用范围" FontWeight="SemiBold" />
                     <ToggleSwitch x:Name="SystemToggle" Header="系统主题（任务栏、开始菜单）" />
                     <ToggleSwitch x:Name="AppsToggle" Header="应用主题" />
 
-                    <TextBlock Text="桌面壁纸" />
+                    <TextBlock Text="桌面壁纸" FontWeight="SemiBold" />
                     <ToggleSwitch x:Name="WallpaperToggle" Header="随主题切换壁纸" Toggled="OnWallpaperToggled" />
                     <StackPanel x:Name="WallpaperPanel" Spacing="8" Visibility="Collapsed">
                         <Grid ColumnDefinitions="*,8,Auto">
@@ -74,7 +77,7 @@
                         <TextBlock Text="切换主题时将同时更换桌面壁纸。支持 JPG / PNG / BMP。" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                     </StackPanel>
 
-                    <TextBlock Text="切换快捷键" />
+                    <TextBlock Text="切换快捷键" FontWeight="SemiBold" />
                     <Grid ColumnDefinitions="*,8,Auto">
                         <TextBox x:Name="HotkeyCapture" IsReadOnly="True" PlaceholderText="点击后按下快捷键" KeyDown="OnHotkeyKeyDown" />
                         <Button x:Name="ClearHotkeyButton" Grid.Column="2" Content="清除" Click="OnClearHotkeyClick" />

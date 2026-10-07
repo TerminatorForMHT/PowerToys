@@ -34,7 +34,12 @@ public sealed partial class SettingsWindow : Window
         presenter.IsResizable = false;
         presenter.IsMaximizable = true;
         AppWindow.SetPresenter(presenter);
-        AppWindow.Resize(new SizeInt32(520, 840));
+
+        // Scale the window by the display's DPI (e.g. 125% → 650×1050 on a 2K screen)
+        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+        var dpi = GetDpiForWindow(hwnd);
+        double scale = dpi / 96.0;
+        AppWindow.Resize(new SizeInt32((int)(520 * scale), (int)(840 * scale)));
 
         var titleBar = AppWindow.TitleBar;
         titleBar.ButtonBackgroundColor = Microsoft.UI.Colors.Transparent;
@@ -46,6 +51,11 @@ public sealed partial class SettingsWindow : Window
         ApplySystemTheme();
         LoadFromSettings();
     }
+
+    // P/Invoke: DPI of the window's display (needed to scale the AppWindow size
+    // correctly — AppWindow.Resize works in physical pixels, not DIPs).
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern uint GetDpiForWindow(System.IntPtr hwnd);
 
     private void OnColorValuesChanged(UISettings sender, object args)
     {
