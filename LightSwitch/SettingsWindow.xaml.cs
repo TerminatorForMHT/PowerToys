@@ -13,8 +13,13 @@ namespace LightSwitch;
 
 public sealed partial class SettingsWindow : Window
 {
+    private const int WM_NCLBUTTONDBLCLK = 0x00A3;
+
     private readonly UISettings _uiSettings = new();
     private HotkeyConfig _hotkey = new();
+    private System.IntPtr _hwnd;
+    private System.IntPtr _oldWndProc;
+    private WndProcDelegate? _newWndProc; // keep alive for the lifetime of the window
 
     public SettingsWindow()
     {
@@ -36,17 +41,22 @@ public sealed partial class SettingsWindow : Window
         AppWindow.SetPresenter(presenter);
 
         // Scale the window by the display's DPI (e.g. 125% → 650×1050 on a 2K screen)
-        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
-        var dpi = GetDpiForWindow(hwnd);
+        _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+        var dpi = GetDpiForWindow(_hwnd);
         double scale = dpi / 96.0;
         AppWindow.Resize(new SizeInt32((int)(520 * scale), (int)(880 * scale)));
+
+        // Subclass: swallow double-click on the title bar so it can't maximize.
+        _newWndProc = WndProcHook;
+        _oldWndProc = SetWindowLongPtrW(_hwnd, -4 /* GWLP_WNDPROC */,
+            System.Runtime.InteropServices.Marshal.GetFunctionPointerForDelegate(_newWndProc));
 
         var titleBar = AppWindow.TitleBar;
         titleBar.ButtonBackgroundColor = Microsoft.UI.Colors.Transparent;
         titleBar.ButtonInactiveBackgroundColor = Microsoft.UI.Colors.Transparent;
 
         _uiSettings.ColorValuesChanged += OnColorValuesChanged;
-        Closed += (_, _) => _uiSettings.ColorValuesChanged -= OnColorValuesChanged;
+        Closed += OnWindowClosed;
 
         ApplySystemTheme();
         LoadFromSettings();
@@ -56,6 +66,31 @@ public sealed partial class SettingsWindow : Window
     // correctly — AppWindow.Resize works in physical pixels, not DIPs).
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     private static extern uint GetDpiForWindow(System.IntPtr hwnd);
+
+    // Subclassing: intercept WM_NCLBUTTONDBLCLK so double-click on the title bar
+    // does not maximize the window.
+    private delegate System.IntPtr WndProcDelegate(System.IntPtr hWnd, uint msg, System.UIntPtr wParam, System.IntPtr lParam);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
+    private static extern System.IntPtr SetWindowLongPtrW(System.IntPtr hWnd, int nIndex, System.IntPtr dwNewLong);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern System.IntPtr CallWindowProcW(System.IntPtr lpPrevWndFunc, System.IntPtr hWnd, uint msg, System.UIntPtr wParam, System.IntPtr lParam);
+
+    private System.IntPtr WndProcHook(System.IntPtr hWnd, uint msg, System.UIntPtr wParam, System.IntPtr lParam)
+    {
+        if (msg == WM_NCLBUTTONDBLCLK)
+            return System.IntPtr.Zero; // swallow the double-click — no maximize
+        return CallWindowProcW(_oldWndProc, hWnd, msg, wParam, lParam);
+    }
+
+    private void OnWindowClosed(object sender, WindowEventArgs args)
+    {
+        _uiSettings.ColorValuesChanged -= OnColorValuesChanged;
+        // Restore original WndProc before the window is destroyed.
+        if (_oldWndProc != System.IntPtr.Zero)
+            SetWindowLongPtrW(_hwnd, -4, _oldWndProc);
+    }
 
     private void OnColorValuesChanged(UISettings sender, object args)
     {
