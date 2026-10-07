@@ -13,7 +13,7 @@
     Version="1.0.0.0" />
 
   <Properties>
-    <DisplayName>LightSwitch</DisplayName>
+    <DisplayName>LightSwitch 主题切换</DisplayName>
     <PublisherDisplayName>LightSwitch</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
@@ -32,8 +32,8 @@
       Executable="$targetnametoken$.exe"
       EntryPoint="$targetentrypoint$">
       <uap:VisualElements
-        DisplayName="LightSwitch"
-        Description="自动切换 Windows 浅色/深色主题"
+        DisplayName="LightSwitch 主题切换"
+        Description="自动切换 Windows 浅色/深色主题：支持固定时间、日出到日落、跟随夜览"
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png">
