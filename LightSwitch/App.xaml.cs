@@ -71,6 +71,9 @@ public partial class App : Application
         if (_trayIcon.ContextFlyout is MenuFlyout mf)
             mf.Opening += OnTrayMenuOpening;
         _trayIcon.ForceCreate(false);
+
+        // SecondWindow mode: Opening may not fire on first open — sync immediately.
+        UpdateTrayModeChecks();
     }
 
     private void HookUpCommand(string resourceKey, TypedEventHandler<XamlUICommand, ExecuteRequestedEventArgs> handler)
@@ -130,6 +133,8 @@ public partial class App : Application
 
     private void ShowSettingsWindow()
     {
+        UpdateTrayModeChecks(); // re-sync radio state in case file was edited externally
+
         if (_settingsWindow == null)
         {
             _settingsWindow = new SettingsWindow();
