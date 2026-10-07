@@ -28,9 +28,9 @@
 
         <Grid Grid.Row="2" Padding="24,0,10,24">
             <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <!-- Right margin reserves a lane for the overlay scrollbar so it
-                     never covers the controls (Fluent scrollbars float on top). -->
-                <StackPanel Spacing="16" Margin="0,0,12,0">
+                <!-- MaxWidth + centered: on wide screens the content stays readable
+                     instead of stretching edge-to-edge (Fluent settings pattern). -->
+                <StackPanel Spacing="16" Margin="0,0,12,0" MaxWidth="480" HorizontalAlignment="Center">
                     <TextBlock Text="计划模式" FontWeight="SemiBold" />
                     <ComboBox x:Name="ModeCombo" HorizontalAlignment="Stretch" SelectionChanged="OnModeChanged">
                         <ComboBoxItem Content="关闭" />

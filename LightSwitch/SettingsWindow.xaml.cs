@@ -32,7 +32,7 @@ public sealed partial class SettingsWindow : Window
 
         var presenter = OverlappedPresenter.Create();
         presenter.IsResizable = false;
-        presenter.IsMaximizable = true;
+        presenter.IsMaximizable = false;
         AppWindow.SetPresenter(presenter);
 
         // Scale the window by the display's DPI (e.g. 125% → 650×1050 on a 2K screen)
