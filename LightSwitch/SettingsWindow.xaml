@@ -77,6 +77,9 @@
                         <TextBlock Text="切换主题时将同时更换桌面壁纸。支持 JPG / PNG / BMP。" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                     </StackPanel>
 
+                    <TextBlock Text="启动" FontWeight="SemiBold" />
+                    <ToggleSwitch x:Name="StartupToggle" Header="开机时自动启动" />
+
                     <TextBlock Text="切换快捷键" FontWeight="SemiBold" />
                     <Grid ColumnDefinitions="*,8,Auto">
                         <TextBox x:Name="HotkeyCapture" IsReadOnly="True" PlaceholderText="点击后按下快捷键" KeyDown="OnHotkeyKeyDown" />

@@ -55,6 +55,7 @@ public sealed class LightSwitchConfig
     public int SunsetOffset { get; set; }
     public bool ChangeSystem { get; set; } = true;
     public bool ChangeApps { get; set; } = true;
+    public bool StartWithWindows { get; set; }
     public HotkeyConfig Hotkey { get; set; } = new() { Win = true, Ctrl = true, Shift = true, Alt = false, Key = 'D' };
 
     // Desktop wallpaper switching: optionally pick a different wallpaper for
@@ -140,6 +141,7 @@ public sealed class SettingsService : IDisposable
                 cfg.SunsetOffset = ReadInt(j, "sunset_offset", cfg.SunsetOffset);
                 cfg.ChangeSystem = ReadBool(j, "changeSystem", cfg.ChangeSystem);
                 cfg.ChangeApps = ReadBool(j, "changeApps", cfg.ChangeApps);
+                cfg.StartWithWindows = ReadBool(j, "startWithWindows", cfg.StartWithWindows);
                 cfg.ChangeWallpaper = ReadBool(j, "changeWallpaper", cfg.ChangeWallpaper);
                 cfg.LightWallpaper = ReadString(j, "lightWallpaper", cfg.LightWallpaper);
                 cfg.DarkWallpaper = ReadString(j, "darkWallpaper", cfg.DarkWallpaper);
@@ -182,6 +184,7 @@ public sealed class SettingsService : IDisposable
                     ["sunset_offset"] = cfg.SunsetOffset,
                     ["changeSystem"] = cfg.ChangeSystem,
                     ["changeApps"] = cfg.ChangeApps,
+                    ["startWithWindows"] = cfg.StartWithWindows,
                     ["changeWallpaper"] = cfg.ChangeWallpaper,
                     ["lightWallpaper"] = cfg.LightWallpaper,
                     ["darkWallpaper"] = cfg.DarkWallpaper,

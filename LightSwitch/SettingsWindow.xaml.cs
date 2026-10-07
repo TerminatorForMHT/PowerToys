@@ -39,7 +39,7 @@ public sealed partial class SettingsWindow : Window
         var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
         var dpi = GetDpiForWindow(hwnd);
         double scale = dpi / 96.0;
-        AppWindow.Resize(new SizeInt32((int)(520 * scale), (int)(840 * scale)));
+        AppWindow.Resize(new SizeInt32((int)(520 * scale), (int)(880 * scale)));
 
         var titleBar = AppWindow.TitleBar;
         titleBar.ButtonBackgroundColor = Microsoft.UI.Colors.Transparent;
@@ -104,6 +104,7 @@ public sealed partial class SettingsWindow : Window
         WallpaperToggle.IsOn = cfg.ChangeWallpaper;
         LightWallpaperBox.Text = cfg.LightWallpaper;
         DarkWallpaperBox.Text = cfg.DarkWallpaper;
+        StartupToggle.IsOn = cfg.StartWithWindows;
         _hotkey = cfg.Hotkey.Clone();
 
         UpdateHotkeyText();
@@ -334,6 +335,7 @@ public sealed partial class SettingsWindow : Window
         cfg.ChangeWallpaper = WallpaperToggle.IsOn;
         cfg.LightWallpaper = LightWallpaperBox.Text.Trim();
         cfg.DarkWallpaper = DarkWallpaperBox.Text.Trim();
+        cfg.StartWithWindows = StartupToggle.IsOn;
         cfg.Hotkey = _hotkey;
 
         var latText = LatitudeBox.Text.Trim();
@@ -386,6 +388,7 @@ public sealed partial class SettingsWindow : Window
         cfg.Longitude = lonText;
 
         SettingsService.Instance.Update(cfg);
+        StartupService.Apply(cfg.StartWithWindows);
         Logger.Info("[SettingsWindow] Settings saved.");
         Close();
     }
