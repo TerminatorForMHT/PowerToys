@@ -86,9 +86,11 @@
                         <Button x:Name="ClearHotkeyButton" Grid.Column="2" Content="清除" Click="OnClearHotkeyClick" />
                     </Grid>
 
-                    <Grid ColumnDefinitions="*,8,*" Margin="0,12,0,0">
-                        <Button Content="保存" Style="{ThemeResource AccentButtonStyle}" Click="OnSaveClick" />
-                        <Button Content="取消" Grid.Column="2" Click="OnCancelClick" />
+                    <!-- Save only: cancel via window X (Fluent convention for non-resizable
+                         settings dialogs). Save right-aligned to match Win11 Settings. -->
+                    <Grid Margin="0,12,0,0">
+                        <Button Content="保存" Style="{ThemeResource AccentButtonStyle}"
+                                HorizontalAlignment="Right" MinWidth="100" Click="OnSaveClick" />
                     </Grid>
                 </StackPanel>
             </ScrollViewer>

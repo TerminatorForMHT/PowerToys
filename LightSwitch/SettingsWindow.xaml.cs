@@ -427,9 +427,4 @@ public sealed partial class SettingsWindow : Window
         Logger.Info("[SettingsWindow] Settings saved.");
         Close();
     }
-
-    private void OnCancelClick(object sender, RoutedEventArgs e)
-    {
-        Close();
-    }
 }
