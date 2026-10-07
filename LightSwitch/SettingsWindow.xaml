@@ -60,6 +60,20 @@
                     <ToggleSwitch x:Name="SystemToggle" Header="系统主题（任务栏、开始菜单）" />
                     <ToggleSwitch x:Name="AppsToggle" Header="应用主题" />
 
+                    <TextBlock Text="桌面壁纸" />
+                    <ToggleSwitch x:Name="WallpaperToggle" Header="随主题切换壁纸" Toggled="OnWallpaperToggled" />
+                    <StackPanel x:Name="WallpaperPanel" Spacing="8" Visibility="Collapsed">
+                        <Grid ColumnDefinitions="*,8,Auto">
+                            <TextBox x:Name="LightWallpaperBox" Header="浅色模式壁纸" PlaceholderText="选择浅色模式使用的图片" IsReadOnly="True" />
+                            <Button x:Name="PickLightWallpaperButton" Grid.Column="2" Content="浏览..." VerticalAlignment="Bottom" Click="OnPickLightWallpaper" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,8,Auto">
+                            <TextBox x:Name="DarkWallpaperBox" Header="深色模式壁纸" PlaceholderText="选择深色模式使用的图片" IsReadOnly="True" />
+                            <Button x:Name="PickDarkWallpaperButton" Grid.Column="2" Content="浏览..." VerticalAlignment="Bottom" Click="OnPickDarkWallpaper" />
+                        </Grid>
+                        <TextBlock Text="切换主题时将同时更换桌面壁纸。支持 JPG / PNG / BMP。" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                    </StackPanel>
+
                     <TextBlock Text="切换快捷键" />
                     <Grid ColumnDefinitions="*,8,Auto">
                         <TextBox x:Name="HotkeyCapture" IsReadOnly="True" PlaceholderText="点击后按下快捷键" KeyDown="OnHotkeyKeyDown" />

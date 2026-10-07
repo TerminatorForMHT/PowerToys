@@ -57,6 +57,12 @@ public sealed class LightSwitchConfig
     public bool ChangeApps { get; set; } = true;
     public HotkeyConfig Hotkey { get; set; } = new() { Win = true, Ctrl = true, Shift = true, Alt = false, Key = 'D' };
 
+    // Desktop wallpaper switching: optionally pick a different wallpaper for
+    // light / dark mode (mirrors Auto Dark Mode's "Switch wallpaper" feature).
+    public bool ChangeWallpaper { get; set; }
+    public string LightWallpaper { get; set; } = string.Empty;
+    public string DarkWallpaper { get; set; } = string.Empty;
+
     public LightSwitchConfig Clone()
     {
         var clone = (LightSwitchConfig)MemberwiseClone();
@@ -134,6 +140,9 @@ public sealed class SettingsService : IDisposable
                 cfg.SunsetOffset = ReadInt(j, "sunset_offset", cfg.SunsetOffset);
                 cfg.ChangeSystem = ReadBool(j, "changeSystem", cfg.ChangeSystem);
                 cfg.ChangeApps = ReadBool(j, "changeApps", cfg.ChangeApps);
+                cfg.ChangeWallpaper = ReadBool(j, "changeWallpaper", cfg.ChangeWallpaper);
+                cfg.LightWallpaper = ReadString(j, "lightWallpaper", cfg.LightWallpaper);
+                cfg.DarkWallpaper = ReadString(j, "darkWallpaper", cfg.DarkWallpaper);
 
                 if (j["hotkey"] is JsonObject hk)
                 {
@@ -173,6 +182,9 @@ public sealed class SettingsService : IDisposable
                     ["sunset_offset"] = cfg.SunsetOffset,
                     ["changeSystem"] = cfg.ChangeSystem,
                     ["changeApps"] = cfg.ChangeApps,
+                    ["changeWallpaper"] = cfg.ChangeWallpaper,
+                    ["lightWallpaper"] = cfg.LightWallpaper,
+                    ["darkWallpaper"] = cfg.DarkWallpaper,
                     ["hotkey"] = new JsonObject
                     {
                         ["win"] = cfg.Hotkey.Win,

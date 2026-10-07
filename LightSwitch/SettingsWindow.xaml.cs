@@ -34,7 +34,7 @@ public sealed partial class SettingsWindow : Window
         presenter.IsResizable = false;
         presenter.IsMaximizable = true;
         AppWindow.SetPresenter(presenter);
-        AppWindow.Resize(new SizeInt32(520, 760));
+        AppWindow.Resize(new SizeInt32(520, 840));
 
         var titleBar = AppWindow.TitleBar;
         titleBar.ButtonBackgroundColor = Microsoft.UI.Colors.Transparent;
@@ -91,11 +91,15 @@ public sealed partial class SettingsWindow : Window
         SunsetOffsetBox.Value = cfg.SunsetOffset;
         SystemToggle.IsOn = cfg.ChangeSystem;
         AppsToggle.IsOn = cfg.ChangeApps;
+        WallpaperToggle.IsOn = cfg.ChangeWallpaper;
+        LightWallpaperBox.Text = cfg.LightWallpaper;
+        DarkWallpaperBox.Text = cfg.DarkWallpaper;
         _hotkey = cfg.Hotkey.Clone();
 
         UpdateHotkeyText();
         UpdateModePanelVisibility();
         UpdateSunTimesDisplay();
+        WallpaperPanel.Visibility = WallpaperToggle.IsOn ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void OnModeChanged(object sender, SelectionChangedEventArgs e)
@@ -225,6 +229,42 @@ public sealed partial class SettingsWindow : Window
         }
     }
 
+    private void OnWallpaperToggled(object sender, RoutedEventArgs e)
+    {
+        WallpaperPanel.Visibility = WallpaperToggle.IsOn ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private async void OnPickLightWallpaper(object sender, RoutedEventArgs e)
+    {
+        var path = await PickImageFileAsync();
+        if (path != null)
+            LightWallpaperBox.Text = path;
+    }
+
+    private async void OnPickDarkWallpaper(object sender, RoutedEventArgs e)
+    {
+        var path = await PickImageFileAsync();
+        if (path != null)
+            DarkWallpaperBox.Text = path;
+    }
+
+    // FileOpenPicker needs a window handle to show up in a WinUI 3 desktop app.
+    private async System.Threading.Tasks.Task<string?> PickImageFileAsync()
+    {
+        var picker = new Windows.Storage.Pickers.FileOpenPicker();
+        picker.ViewMode = Windows.Storage.Pickers.PickerViewMode.Thumbnail;
+        picker.FileTypeFilter.Add(".jpg");
+        picker.FileTypeFilter.Add(".jpeg");
+        picker.FileTypeFilter.Add(".png");
+        picker.FileTypeFilter.Add(".bmp");
+
+        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+
+        var file = await picker.PickSingleFileAsync();
+        return file?.Path;
+    }
+
     private void OnClearHotkeyClick(object sender, RoutedEventArgs e)
     {
         _hotkey = new HotkeyConfig();
@@ -281,6 +321,9 @@ public sealed partial class SettingsWindow : Window
         cfg.SunsetOffset = double.IsNaN(SunsetOffsetBox.Value) ? 0 : (int)SunsetOffsetBox.Value;
         cfg.ChangeSystem = SystemToggle.IsOn;
         cfg.ChangeApps = AppsToggle.IsOn;
+        cfg.ChangeWallpaper = WallpaperToggle.IsOn;
+        cfg.LightWallpaper = LightWallpaperBox.Text.Trim();
+        cfg.DarkWallpaper = DarkWallpaperBox.Text.Trim();
         cfg.Hotkey = _hotkey;
 
         var latText = LatitudeBox.Text.Trim();

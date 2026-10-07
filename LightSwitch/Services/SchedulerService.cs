@@ -442,5 +442,7 @@ internal sealed class SchedulerService : IDisposable
             if (shouldBeLight != current)
                 ThemeService.SetAppsTheme(shouldBeLight);
         }
+        // Swap the desktop wallpaper along with the theme (Auto Dark Mode style).
+        WallpaperService.ApplyForTheme(shouldBeLight, settings);
     }
 }
