@@ -1,5 +1,5 @@
 <Window
-    x:Class="LightSwitch.SettingsWindow"
+    x:Class="LightSwitch.SettingsUi"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -7,12 +7,6 @@
     mc:Ignorable="d">
 
     <Grid x:Name="RootGrid">
-        <Grid.Resources>
-            <!-- Bottom-up slide used when switching nav sections (native transition) -->
-            <TransitionCollection x:Key="SlideUpTransition">
-                <EntranceThemeTransition FromVerticalOffset="56" IsStaggeringEnabled="False" />
-            </TransitionCollection>
-        </Grid.Resources>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -74,7 +68,7 @@
                     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                         <StackPanel MaxWidth="1000" HorizontalAlignment="Left" Margin="24,0,24,24" Spacing="16">
                             <!-- Section: schedule mode -->
-                            <StackPanel x:Name="SectionMode" Spacing="16" Transitions="{StaticResource SlideUpTransition}">
+                            <StackPanel x:Name="SectionMode" Spacing="16">
                                 <ComboBox x:Name="ModeCombo" HorizontalAlignment="Stretch" SelectionChanged="OnModeChanged">
                                     <ComboBoxItem Content="关闭" />
                                     <ComboBoxItem Content="固定时间" />
@@ -106,13 +100,13 @@
                             </StackPanel>
 
                             <!-- Section: theme scope -->
-                            <StackPanel x:Name="SectionScope" Spacing="8" Visibility="Collapsed" Transitions="{StaticResource SlideUpTransition}">
+                            <StackPanel x:Name="SectionScope" Spacing="8" Visibility="Collapsed">
                                 <ToggleSwitch x:Name="SystemToggle" Header="系统主题（任务栏、开始菜单）" Toggled="OnSettingToggled" />
                                 <ToggleSwitch x:Name="AppsToggle" Header="应用主题" Toggled="OnSettingToggled" />
                             </StackPanel>
 
                             <!-- Section: wallpaper -->
-                            <StackPanel x:Name="SectionWallpaper" Spacing="8" Visibility="Collapsed" Transitions="{StaticResource SlideUpTransition}">
+                            <StackPanel x:Name="SectionWallpaper" Spacing="8" Visibility="Collapsed">
                                 <ToggleSwitch x:Name="WallpaperToggle" Header="随主题切换壁纸" Toggled="OnWallpaperToggled" />
                                 <StackPanel x:Name="WallpaperPanel" Spacing="8" Visibility="Collapsed">
                                     <ToggleSwitch x:Name="PerMonitorToggle" Header="多显示器分别设置壁纸" Toggled="OnPerMonitorToggled" />
@@ -131,7 +125,7 @@
                             </StackPanel>
 
                             <!-- Section: general (startup + hotkey + tray + notifications) -->
-                            <StackPanel x:Name="SectionGeneral" Spacing="8" Visibility="Collapsed" Transitions="{StaticResource SlideUpTransition}">
+                            <StackPanel x:Name="SectionGeneral" Spacing="8" Visibility="Collapsed">
                                 <ToggleSwitch x:Name="StartupToggle" Header="开机时自动启动" Toggled="OnSettingToggled" />
                                 <ToggleSwitch x:Name="NotificationsToggle" Header="切换主题时显示系统通知" Toggled="OnSettingToggled" />
                                 <ComboBox x:Name="TrayDoubleClickCombo" Header="双击托盘图标" SelectedIndex="0" SelectionChanged="OnTrayActionChanged">

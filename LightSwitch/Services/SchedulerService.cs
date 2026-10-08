@@ -18,6 +18,7 @@ internal sealed class SchedulerService : IDisposable
     private bool _isSystemLightActive;
     private bool _isAppsLightActive;
     private bool _isNightLightActive;
+    private bool _nightLightStateChanged;
     private int _lastEvaluatedDay = -1;
     private int _lastTickMinutes = -1;
     private int _effectiveLightMinutes;
@@ -224,6 +225,7 @@ internal sealed class SchedulerService : IDisposable
             {
                 Logger.Info($"[Scheduler] Night Light toggled to {(newState ? "ON" : "OFF")}.");
                 _isNightLightActive = newState;
+                _nightLightStateChanged = true;
             }
             else
             {
@@ -414,6 +416,22 @@ internal sealed class SchedulerService : IDisposable
                 return;
             }
         }
+
+        // Follow Night Light switches the theme only when the Night Light state
+        // actually changes (ON → dark, OFF → light). On first enable — or while
+        // the state is unchanged — respect the current theme instead of forcing
+        // a flip (e.g. flipping a dark night theme to light while Night Light
+        // simply is off).
+        if (snap.ScheduleMode == ScheduleMode.FollowNightLight && !_nightLightStateChanged)
+        {
+            _isSystemLightActive = ThemeService.GetCurrentSystemTheme();
+            _isAppsLightActive = ThemeService.GetCurrentAppsTheme();
+            _lastAppliedMode = snap.ScheduleMode;
+            _lastTickMinutes = now;
+            return;
+        }
+        if (snap.ScheduleMode == ScheduleMode.FollowNightLight)
+            _nightLightStateChanged = false;
 
         _lastAppliedMode = snap.ScheduleMode;
 

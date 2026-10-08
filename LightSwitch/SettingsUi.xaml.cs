@@ -11,7 +11,7 @@ using Windows.UI.ViewManagement;
 
 namespace LightSwitch;
 
-public sealed partial class SettingsWindow : Window
+public sealed partial class SettingsUi : Window
 {
     private readonly UISettings _uiSettings = new();
     private HotkeyConfig _hotkey = new();
@@ -20,11 +20,29 @@ public sealed partial class SettingsWindow : Window
     // Monitor count the current dynamic wallpaper rows were built for.
     private int _monitorCount;
 
+    // The Apply button. x:Name field binding for elements deep inside
+    // NavigationView.Content proved unreliable (the generated field stayed
+    // null at runtime), so resolve it by name and cache the lookup.
+    // Null-safe: events like TrayDoubleClickCombo.SelectionChanged fire while
+    // the XBF is still parsing (SelectedIndex="0" in markup), when Content is
+    // not assigned yet — dereferencing Content there would crash the parse.
+    private Button? _applyButton;
+
+    private Button? ApplyButtonControl
+    {
+        get
+        {
+            if (_applyButton == null)
+                _applyButton = (Content as FrameworkElement)?.FindName("ApplyButton") as Button;
+            return _applyButton;
+        }
+    }
+
     // Per-monitor wallpaper text boxes (monitors 2..N), rebuilt on load.
     private readonly List<TextBox> _extraLightBoxes = new();
     private readonly List<TextBox> _extraDarkBoxes = new();
 
-    public SettingsWindow()
+    public SettingsUi()
     {
         InitializeComponent();
 
@@ -63,6 +81,16 @@ public sealed partial class SettingsWindow : Window
         _uiSettings.ColorValuesChanged += OnColorValuesChanged;
         Closed += OnWindowClosed;
 
+        // Apply-button mode: never lose pending edits when the window closes —
+        // save them silently on Closing (controls still alive there; Closed runs
+        // after the XAML tree is torn down). Invalid lat/lon falls back to the
+        // stored values inside CollectUiState.
+        AppWindow.Closing += (_, _) =>
+        {
+            if (IsDirty())
+                ApplyChanges();
+        };
+
         ApplySystemTheme();
         LoadFromSettings();
 
@@ -83,6 +111,11 @@ public sealed partial class SettingsWindow : Window
     // Win11 Settings pattern: the left nav pane switches the visible section.
     private void OnNavSelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
+        // Controls deeper in the tree may not be connected yet when this fires
+        // during XAML parsing — bail out instead of touching null fields.
+        if (SectionMode is null || PageTitle is null)
+            return;
+
         if (args.SelectedItem is not NavigationViewItem item)
             return;
 
@@ -382,7 +415,8 @@ public sealed partial class SettingsWindow : Window
 
     private void UpdateApplyButtonState()
     {
-        ApplyButton.IsEnabled = IsDirty();
+        if (ApplyButtonControl is { } btn)
+            btn.IsEnabled = IsDirty();
     }
 
     private void OnModeChanged(object sender, SelectionChangedEventArgs e)

@@ -14,7 +14,7 @@ public partial class App : Application
 
     private Mutex? _singleInstanceMutex;
     private TaskbarIcon? _trayIcon;
-    private SettingsWindow? _settingsWindow;
+    private SettingsUi? _settingsWindow;
     private SchedulerService? _scheduler;
     private HotkeyService? _hotkey;
     private DisplayChangeWatcher? _displayWatcher;
@@ -66,14 +66,17 @@ public partial class App : Application
 
         SettingsService.Instance.Changed += OnSettingsChanged;
 
-        HookUpCommand("ToggleThemeCommand", (_, _) => _scheduler.ToggleThemeNow());
-        HookUpCommand("ModeOffCommand", (_, _) => SetMode(ScheduleMode.Off));
-        HookUpCommand("ModeFixedCommand", (_, _) => SetMode(ScheduleMode.FixedHours));
-        HookUpCommand("ModeSunCommand", (_, _) => SetMode(ScheduleMode.SunsetToSunrise));
-        HookUpCommand("ModeNightLightCommand", (_, _) => SetMode(ScheduleMode.FollowNightLight));
-        HookUpCommand("TrayDoubleClickCommand", (_, _) => OnTrayDoubleClick());
-        HookUpCommand("OpenSettingsCommand", (_, _) => ShowSettingsWindow());
-        HookUpCommand("ExitCommand", (_, _) => ExitApp());
+        // Tray flyout commands execute while the menu is tearing down; creating
+        // or showing a window in that context races the flyout close and can
+        // crash. Dispatch instead so the work runs after the menu is gone.
+        HookUpCommand("ToggleThemeCommand", (_, _) => RunOnUi(() => _scheduler.ToggleThemeNow()));
+        HookUpCommand("ModeOffCommand", (_, _) => RunOnUi(() => SetMode(ScheduleMode.Off)));
+        HookUpCommand("ModeFixedCommand", (_, _) => RunOnUi(() => SetMode(ScheduleMode.FixedHours)));
+        HookUpCommand("ModeSunCommand", (_, _) => RunOnUi(() => SetMode(ScheduleMode.SunsetToSunrise)));
+        HookUpCommand("ModeNightLightCommand", (_, _) => RunOnUi(() => SetMode(ScheduleMode.FollowNightLight)));
+        HookUpCommand("TrayDoubleClickCommand", (_, _) => RunOnUi(OnTrayDoubleClick));
+        HookUpCommand("OpenSettingsCommand", (_, _) => RunOnUi(ShowSettingsWindow));
+        HookUpCommand("ExitCommand", (_, _) => RunOnUi(ExitApp));
 
         _trayIcon = (TaskbarIcon)Resources["TrayIcon"];
         if (_trayIcon.ContextFlyout is MenuFlyout mf)
@@ -163,6 +166,10 @@ public partial class App : Application
         }
     }
 
+    // Queues work onto the UI thread (always asynchronous, so queued handlers
+    // run after a tray flyout has finished closing).
+    private void RunOnUi(Action action) => _uiDispatcher?.TryEnqueue(() => action());
+
     private void OnTrayMenuOpening(object sender, object e) => UpdateTrayModeChecks();
 
     private static void SetMode(ScheduleMode mode)
@@ -179,7 +186,7 @@ public partial class App : Application
 
         if (_settingsWindow == null)
         {
-            _settingsWindow = new SettingsWindow();
+            _settingsWindow = new SettingsUi();
             _settingsWindow.Closed += (_, _) => _settingsWindow = null;
             _settingsWindow.Activate();
         }
