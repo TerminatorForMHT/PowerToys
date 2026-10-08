@@ -63,7 +63,6 @@ public sealed partial class SettingsWindow : Window
         _uiSettings.ColorValuesChanged += OnColorValuesChanged;
         Closed += OnWindowClosed;
 
-        CreateMonitorWallpaperRows();
         ApplySystemTheme();
         LoadFromSettings();
 
@@ -146,22 +145,22 @@ public sealed partial class SettingsWindow : Window
             WallpaperToggle.IsOn = cfg.ChangeWallpaper;
             LightWallpaperBox.Text = cfg.LightWallpaper;
             DarkWallpaperBox.Text = cfg.DarkWallpaper;
-            for (int i = 0; i < _extraLightBoxes.Count; i++)
-            {
-                var l = i == 0 ? cfg.LightWallpaper2 : cfg.LightWallpaper3;
-                var d = i == 0 ? cfg.DarkWallpaper2 : cfg.DarkWallpaper3;
-                _extraLightBoxes[i].Text = l;
-                _extraDarkBoxes[i].Text = d;
-            }
             StartupToggle.IsOn = cfg.StartWithWindows;
             NotificationsToggle.IsOn = cfg.ShowNotifications;
             TrayDoubleClickCombo.SelectedIndex = cfg.TrayDoubleClickAction == "settings" ? 1 : 0;
+            PerMonitorToggle.IsOn = cfg.PerMonitorWallpaper;
             _hotkey = cfg.Hotkey.Clone();
+
+            RebuildMonitorRows();
+            for (int i = 0; i < _extraLightBoxes.Count; i++)
+                _extraLightBoxes[i].Text = i < cfg.ExtraLightWallpapers.Count ? cfg.ExtraLightWallpapers[i] : string.Empty;
+            for (int i = 0; i < _extraDarkBoxes.Count; i++)
+                _extraDarkBoxes[i].Text = i < cfg.ExtraDarkWallpapers.Count ? cfg.ExtraDarkWallpapers[i] : string.Empty;
 
             UpdateHotkeyText();
             UpdateModePanelVisibility();
             UpdateSunTimesDisplay();
-            WallpaperPanel.Visibility = WallpaperToggle.IsOn ? Visibility.Visible : Visibility.Collapsed;
+            UpdateWallpaperUi();
         }
         finally
         {
@@ -169,10 +168,15 @@ public sealed partial class SettingsWindow : Window
         }
     }
 
-    // One row (light + dark pickers) per additional monitor, up to 3 monitors.
-    private void CreateMonitorWallpaperRows()
+    // One row (light + dark pickers) per additional monitor, rebuilt on every
+    // settings load so the count always matches the monitors currently attached.
+    private void RebuildMonitorRows()
     {
-        int count = Math.Min(Math.Max(WallpaperService.GetMonitorCount(), 1), 3);
+        MonitorWallpaperPanel.Children.Clear();
+        _extraLightBoxes.Clear();
+        _extraDarkBoxes.Clear();
+
+        int count = Math.Max(WallpaperService.GetMonitorCount(), 1);
         for (int m = 1; m < count; m++)
         {
             var lightBox = new TextBox { Header = $"显示器 {m + 1} · 浅色壁纸", PlaceholderText = "留空则沿用显示器 1 的图片", IsReadOnly = true };
@@ -204,6 +208,29 @@ public sealed partial class SettingsWindow : Window
             _extraLightBoxes.Add(lightBox);
             _extraDarkBoxes.Add(darkBox);
         }
+    }
+
+    // Sync all wallpaper-section visibility and labels with the toggles and
+    // the number of monitors currently attached.
+    private void UpdateWallpaperUi()
+    {
+        bool wallpaperOn = WallpaperToggle.IsOn;
+        WallpaperPanel.Visibility = wallpaperOn ? Visibility.Visible : Visibility.Collapsed;
+
+        bool perMonitor = PerMonitorToggle.IsOn;
+        bool multiMonitor = WallpaperService.GetMonitorCount() > 1;
+
+        PerMonitorToggle.Visibility = wallpaperOn && multiMonitor ? Visibility.Visible : Visibility.Collapsed;
+        MonitorWallpaperPanel.Visibility = wallpaperOn && perMonitor && multiMonitor ? Visibility.Visible : Visibility.Collapsed;
+
+        string lightHeader = perMonitor && multiMonitor ? "显示器 1 · 浅色壁纸" : "浅色壁纸";
+        string darkHeader = perMonitor && multiMonitor ? "显示器 1 · 深色壁纸" : "深色壁纸";
+        LightWallpaperBox.Header = lightHeader;
+        DarkWallpaperBox.Header = darkHeader;
+
+        WallpaperHint.Text = perMonitor && multiMonitor
+            ? "每个显示器可单独指定浅色 / 深色壁纸，留空则沿用显示器 1 的图片。支持 JPG / PNG / BMP。"
+            : "所有显示器使用同一张壁纸。支持 JPG / PNG / BMP。";
     }
 
     private static Grid WrapWithBrowse(TextBox box, Button button)
@@ -242,12 +269,11 @@ public sealed partial class SettingsWindow : Window
         cfg.ChangeSystem = SystemToggle.IsOn;
         cfg.ChangeApps = AppsToggle.IsOn;
         cfg.ChangeWallpaper = WallpaperToggle.IsOn;
+        cfg.PerMonitorWallpaper = PerMonitorToggle.IsOn;
         cfg.LightWallpaper = LightWallpaperBox.Text.Trim();
         cfg.DarkWallpaper = DarkWallpaperBox.Text.Trim();
-        if (_extraLightBoxes.Count > 0) cfg.LightWallpaper2 = _extraLightBoxes[0].Text.Trim();
-        if (_extraLightBoxes.Count > 1) cfg.LightWallpaper3 = _extraLightBoxes[1].Text.Trim();
-        if (_extraDarkBoxes.Count > 0) cfg.DarkWallpaper2 = _extraDarkBoxes[0].Text.Trim();
-        if (_extraDarkBoxes.Count > 1) cfg.DarkWallpaper3 = _extraDarkBoxes[1].Text.Trim();
+        cfg.ExtraLightWallpapers = _extraLightBoxes.Select(b => b.Text.Trim()).ToList();
+        cfg.ExtraDarkWallpapers = _extraDarkBoxes.Select(b => b.Text.Trim()).ToList();
         cfg.StartWithWindows = StartupToggle.IsOn;
         cfg.ShowNotifications = NotificationsToggle.IsOn;
         cfg.TrayDoubleClickAction = TrayDoubleClickCombo.SelectedIndex == 1 ? "settings" : "toggle";
@@ -471,7 +497,13 @@ public sealed partial class SettingsWindow : Window
 
     private void OnWallpaperToggled(object sender, RoutedEventArgs e)
     {
-        WallpaperPanel.Visibility = WallpaperToggle.IsOn ? Visibility.Visible : Visibility.Collapsed;
+        UpdateWallpaperUi();
+        ApplyChanges();
+    }
+
+    private void OnPerMonitorToggled(object sender, RoutedEventArgs e)
+    {
+        UpdateWallpaperUi();
         ApplyChanges();
     }
 

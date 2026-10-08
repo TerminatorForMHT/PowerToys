@@ -189,8 +189,9 @@ public static class WallpaperService
         }
     }
 
-    // Applies the wallpaper for the target theme. Monitor 1 uses Light/DarkWallpaper;
-    // monitors 2/3 use their own fields, falling back to monitor 1's image when empty.
+    // Applies the wallpaper for the target theme. Monitor 1 uses Light/DarkWallpaper.
+    // With PerMonitorWallpaper enabled, monitor N+1 uses ExtraLight/ExtraDarkWallpapers[N],
+    // falling back to monitor 1's image when empty; otherwise all monitors share image 1.
     public static void ApplyForTheme(bool isLight, LightSwitchConfig cfg)
     {
         if (!cfg.ChangeWallpaper)
@@ -200,9 +201,7 @@ public static class WallpaperService
         if (string.IsNullOrWhiteSpace(primary))
             return;
 
-        var targets = new[] { primary,
-            isLight ? cfg.LightWallpaper2 : cfg.DarkWallpaper2,
-            isLight ? cfg.LightWallpaper3 : cfg.DarkWallpaper3 };
+        var extras = isLight ? cfg.ExtraLightWallpapers : cfg.ExtraDarkWallpapers;
 
         try
         {
@@ -210,9 +209,16 @@ public static class WallpaperService
             uint count = wallpaper.GetMonitorDevicePathCount();
             bool anyChanged = false;
 
-            for (uint i = 0; i < count && i < 3; i++)
+            for (uint i = 0; i < count; i++)
             {
-                var target = string.IsNullOrWhiteSpace(targets[i]) ? primary : targets[i];
+                string target = primary;
+                if (cfg.PerMonitorWallpaper && i > 0)
+                {
+                    int idx = (int)i - 1;
+                    if (idx < extras.Count && !string.IsNullOrWhiteSpace(extras[idx]))
+                        target = extras[idx];
+                }
+
                 if (!File.Exists(target))
                     continue;
 

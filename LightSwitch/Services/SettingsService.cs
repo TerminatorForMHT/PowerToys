@@ -60,15 +60,15 @@ public sealed class LightSwitchConfig
 
     // Desktop wallpaper switching: optionally pick a different wallpaper for
     // light / dark mode (mirrors Auto Dark Mode's "Switch wallpaper" feature).
-    // Wallpapers for additional monitors (per-monitor, index 2/3); monitor 1
-    // uses LightWallpaper/DarkWallpaper. Empty = reuse monitor 1's image.
+    // Monitor 1 uses LightWallpaper/DarkWallpaper. When PerMonitorWallpaper is
+    // enabled, monitor N+1 uses ExtraLight/ExtraDarkWallpapers[N] (empty or
+    // missing entry = reuse monitor 1's image).
     public bool ChangeWallpaper { get; set; }
+    public bool PerMonitorWallpaper { get; set; }
     public string LightWallpaper { get; set; } = string.Empty;
     public string DarkWallpaper { get; set; } = string.Empty;
-    public string LightWallpaper2 { get; set; } = string.Empty;
-    public string DarkWallpaper2 { get; set; } = string.Empty;
-    public string LightWallpaper3 { get; set; } = string.Empty;
-    public string DarkWallpaper3 { get; set; } = string.Empty;
+    public List<string> ExtraLightWallpapers { get; set; } = new();
+    public List<string> ExtraDarkWallpapers { get; set; } = new();
 
     // Show a toast notification whenever the theme switches.
     public bool ShowNotifications { get; set; } = true;
@@ -80,6 +80,8 @@ public sealed class LightSwitchConfig
     {
         var clone = (LightSwitchConfig)MemberwiseClone();
         clone.Hotkey = Hotkey.Clone();
+        clone.ExtraLightWallpapers = new List<string>(ExtraLightWallpapers);
+        clone.ExtraDarkWallpapers = new List<string>(ExtraDarkWallpapers);
         return clone;
     }
 }
@@ -155,12 +157,33 @@ public sealed class SettingsService : IDisposable
                 cfg.ChangeApps = ReadBool(j, "changeApps", cfg.ChangeApps);
                 cfg.StartWithWindows = ReadBool(j, "startWithWindows", cfg.StartWithWindows);
                 cfg.ChangeWallpaper = ReadBool(j, "changeWallpaper", cfg.ChangeWallpaper);
+                cfg.PerMonitorWallpaper = ReadBool(j, "perMonitorWallpaper", cfg.PerMonitorWallpaper);
                 cfg.LightWallpaper = ReadString(j, "lightWallpaper", cfg.LightWallpaper);
                 cfg.DarkWallpaper = ReadString(j, "darkWallpaper", cfg.DarkWallpaper);
-                cfg.LightWallpaper2 = ReadString(j, "lightWallpaper2", cfg.LightWallpaper2);
-                cfg.DarkWallpaper2 = ReadString(j, "darkWallpaper2", cfg.DarkWallpaper2);
-                cfg.LightWallpaper3 = ReadString(j, "lightWallpaper3", cfg.LightWallpaper3);
-                cfg.DarkWallpaper3 = ReadString(j, "darkWallpaper3", cfg.DarkWallpaper3);
+
+                var extraLight = ReadStringList(j, "extraLightWallpapers");
+                if (extraLight == null)
+                {
+                    // Backward compat with the pre-list schema (fixed monitors 2/3).
+                    var l2 = ReadString(j, "lightWallpaper2", string.Empty);
+                    var l3 = ReadString(j, "lightWallpaper3", string.Empty);
+                    if (l2.Length > 0 || l3.Length > 0)
+                        extraLight = new List<string> { l2, l3 };
+                }
+                if (extraLight != null)
+                    cfg.ExtraLightWallpapers = extraLight;
+
+                var extraDark = ReadStringList(j, "extraDarkWallpapers");
+                if (extraDark == null)
+                {
+                    var d2 = ReadString(j, "darkWallpaper2", string.Empty);
+                    var d3 = ReadString(j, "darkWallpaper3", string.Empty);
+                    if (d2.Length > 0 || d3.Length > 0)
+                        extraDark = new List<string> { d2, d3 };
+                }
+                if (extraDark != null)
+                    cfg.ExtraDarkWallpapers = extraDark;
+
                 cfg.ShowNotifications = ReadBool(j, "showNotifications", cfg.ShowNotifications);
                 cfg.TrayDoubleClickAction = ReadString(j, "trayDoubleClickAction", cfg.TrayDoubleClickAction);
 
@@ -204,12 +227,13 @@ public sealed class SettingsService : IDisposable
                     ["changeApps"] = cfg.ChangeApps,
                     ["startWithWindows"] = cfg.StartWithWindows,
                     ["changeWallpaper"] = cfg.ChangeWallpaper,
+                    ["perMonitorWallpaper"] = cfg.PerMonitorWallpaper,
                     ["lightWallpaper"] = cfg.LightWallpaper,
                     ["darkWallpaper"] = cfg.DarkWallpaper,
-                    ["lightWallpaper2"] = cfg.LightWallpaper2,
-                    ["darkWallpaper2"] = cfg.DarkWallpaper2,
-                    ["lightWallpaper3"] = cfg.LightWallpaper3,
-                    ["darkWallpaper3"] = cfg.DarkWallpaper3,
+                    ["extraLightWallpapers"] = new JsonArray(
+                        cfg.ExtraLightWallpapers.Select(v => JsonValue.Create(v)).ToArray<JsonNode?>()),
+                    ["extraDarkWallpapers"] = new JsonArray(
+                        cfg.ExtraDarkWallpapers.Select(v => JsonValue.Create(v)).ToArray<JsonNode?>()),
                     ["showNotifications"] = cfg.ShowNotifications,
                     ["trayDoubleClickAction"] = cfg.TrayDoubleClickAction,
                     ["hotkey"] = new JsonObject
@@ -348,5 +372,19 @@ public sealed class SettingsService : IDisposable
     private static bool ReadBool(JsonObject j, string key, bool fallback)
     {
         return j[key] is JsonValue v && v.TryGetValue<bool>(out var b) ? b : fallback;
+    }
+
+    private static List<string>? ReadStringList(JsonObject j, string key)
+    {
+        if (j[key] is not JsonArray arr)
+            return null;
+
+        var list = new List<string>();
+        foreach (var item in arr)
+        {
+            if (item is JsonValue v && v.TryGetValue<string>(out var s))
+                list.Add(s);
+        }
+        return list;
     }
 }

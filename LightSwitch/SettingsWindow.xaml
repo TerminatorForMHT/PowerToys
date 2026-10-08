@@ -108,17 +108,18 @@
                             <StackPanel x:Name="SectionWallpaper" Spacing="8" Visibility="Collapsed">
                                 <ToggleSwitch x:Name="WallpaperToggle" Header="随主题切换壁纸" Toggled="OnWallpaperToggled" />
                                 <StackPanel x:Name="WallpaperPanel" Spacing="8" Visibility="Collapsed">
+                                    <ToggleSwitch x:Name="PerMonitorToggle" Header="多显示器分别设置壁纸" Toggled="OnPerMonitorToggled" />
                                     <Grid ColumnDefinitions="*,8,Auto">
-                                        <TextBox x:Name="LightWallpaperBox" Header="显示器 1 · 浅色壁纸" PlaceholderText="选择浅色模式使用的图片" IsReadOnly="True" />
+                                        <TextBox x:Name="LightWallpaperBox" Header="浅色壁纸" PlaceholderText="选择浅色模式使用的图片" IsReadOnly="True" />
                                         <Button x:Name="PickLightWallpaperButton" Grid.Column="2" Content="浏览..." VerticalAlignment="Bottom" Click="OnPickLightWallpaper" />
                                     </Grid>
                                     <Grid ColumnDefinitions="*,8,Auto">
-                                        <TextBox x:Name="DarkWallpaperBox" Header="显示器 1 · 深色壁纸" PlaceholderText="选择深色模式使用的图片" IsReadOnly="True" />
+                                        <TextBox x:Name="DarkWallpaperBox" Header="深色壁纸" PlaceholderText="选择深色模式使用的图片" IsReadOnly="True" />
                                         <Button x:Name="PickDarkWallpaperButton" Grid.Column="2" Content="浏览..." VerticalAlignment="Bottom" Click="OnPickDarkWallpaper" />
                                     </Grid>
-                                    <!-- Rows for monitors 2..3 are generated in code-behind -->
-                                    <StackPanel x:Name="MonitorWallpaperPanel" Spacing="8" />
-                                    <TextBlock Text="每个显示器可单独指定浅色 / 深色壁纸，留空则沿用显示器 1 的图片。支持 JPG / PNG / BMP。" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                                    <!-- Rows for monitors 2..N are generated in code-behind -->
+                                    <StackPanel x:Name="MonitorWallpaperPanel" Spacing="8" Visibility="Collapsed" />
+                                    <TextBlock x:Name="WallpaperHint" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                                 </StackPanel>
                             </StackPanel>
 
