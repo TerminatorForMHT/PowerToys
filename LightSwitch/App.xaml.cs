@@ -17,6 +17,7 @@ public partial class App : Application
     private SettingsWindow? _settingsWindow;
     private SchedulerService? _scheduler;
     private HotkeyService? _hotkey;
+    private DisplayChangeWatcher? _displayWatcher;
 
     // RegisterHotKey/UnregisterHotKey must run on the thread that created the
     // hidden hotkey window, so settings-change handlers marshal back here.
@@ -56,6 +57,12 @@ public partial class App : Application
         _hotkey.HotkeyPressed += (_, _) => _scheduler.ToggleThemeNow();
         _hotkey.Start();
         ApplyHotkeyWithFeedback(SettingsService.Instance.Snapshot.Hotkey);
+
+        // Refresh the settings window's per-monitor rows on display changes.
+        _displayWatcher = new DisplayChangeWatcher();
+        _displayWatcher.DisplayChanged += (_, _) =>
+            _uiDispatcher.TryEnqueue(() => _settingsWindow?.OnMonitorsChanged());
+        _displayWatcher.Start();
 
         SettingsService.Instance.Changed += OnSettingsChanged;
 
@@ -192,6 +199,9 @@ public partial class App : Application
 
         _hotkey?.Dispose();
         _hotkey = null;
+
+        _displayWatcher?.Dispose();
+        _displayWatcher = null;
 
         _scheduler?.Dispose();
         _scheduler = null;

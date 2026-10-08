@@ -17,10 +17,10 @@ public sealed partial class SettingsWindow : Window
     private HotkeyConfig _hotkey = new();
     private System.IntPtr _hwnd;
 
-    // Guard: control mutations during LoadFromSettings must not re-persist settings.
-    private bool _loading;
+    // Monitor count the current dynamic wallpaper rows were built for.
+    private int _monitorCount;
 
-    // Per-monitor wallpaper text boxes (monitors 2..3), created in the ctor.
+    // Per-monitor wallpaper text boxes (monitors 2..N), rebuilt on load.
     private readonly List<TextBox> _extraLightBoxes = new();
     private readonly List<TextBox> _extraDarkBoxes = new();
 
@@ -119,53 +119,62 @@ public sealed partial class SettingsWindow : Window
 
     private void LoadFromSettings()
     {
-        _loading = true;
-        try
+        var cfg = SettingsService.Instance.Snapshot;
+
+        ModeCombo.SelectedIndex = cfg.ScheduleMode switch
         {
-            var cfg = SettingsService.Instance.Snapshot;
+            ScheduleMode.Off => 0,
+            ScheduleMode.FixedHours => 1,
+            ScheduleMode.SunsetToSunrise => 2,
+            ScheduleMode.FollowNightLight => 3,
+            _ => 0,
+        };
 
-            ModeCombo.SelectedIndex = cfg.ScheduleMode switch
-            {
-                ScheduleMode.Off => 0,
-                ScheduleMode.FixedHours => 1,
-                ScheduleMode.SunsetToSunrise => 2,
-                ScheduleMode.FollowNightLight => 3,
-                _ => 0,
-            };
+        LightTimePicker.Time = TimeSpan.FromMinutes(((cfg.LightTime % 1440) + 1440) % 1440);
+        DarkTimePicker.Time = TimeSpan.FromMinutes(((cfg.DarkTime % 1440) + 1440) % 1440);
+        // "0.0"/"0.0" is the persisted sentinel for "use system location".
+        LatitudeBox.Text = cfg.Latitude == "0.0" ? string.Empty : cfg.Latitude;
+        LongitudeBox.Text = cfg.Longitude == "0.0" ? string.Empty : cfg.Longitude;
+        SunriseOffsetBox.Value = cfg.SunriseOffset;
+        SunsetOffsetBox.Value = cfg.SunsetOffset;
+        SystemToggle.IsOn = cfg.ChangeSystem;
+        AppsToggle.IsOn = cfg.ChangeApps;
+        WallpaperToggle.IsOn = cfg.ChangeWallpaper;
+        LightWallpaperBox.Text = cfg.LightWallpaper;
+        DarkWallpaperBox.Text = cfg.DarkWallpaper;
+        StartupToggle.IsOn = cfg.StartWithWindows;
+        NotificationsToggle.IsOn = cfg.ShowNotifications;
+        TrayDoubleClickCombo.SelectedIndex = cfg.TrayDoubleClickAction == "settings" ? 1 : 0;
+        PerMonitorToggle.IsOn = cfg.PerMonitorWallpaper;
+        _hotkey = cfg.Hotkey.Clone();
 
-            LightTimePicker.Time = TimeSpan.FromMinutes(((cfg.LightTime % 1440) + 1440) % 1440);
-            DarkTimePicker.Time = TimeSpan.FromMinutes(((cfg.DarkTime % 1440) + 1440) % 1440);
-            // "0.0"/"0.0" is the persisted sentinel for "use system location".
-            LatitudeBox.Text = cfg.Latitude == "0.0" ? string.Empty : cfg.Latitude;
-            LongitudeBox.Text = cfg.Longitude == "0.0" ? string.Empty : cfg.Longitude;
-            SunriseOffsetBox.Value = cfg.SunriseOffset;
-            SunsetOffsetBox.Value = cfg.SunsetOffset;
-            SystemToggle.IsOn = cfg.ChangeSystem;
-            AppsToggle.IsOn = cfg.ChangeApps;
-            WallpaperToggle.IsOn = cfg.ChangeWallpaper;
-            LightWallpaperBox.Text = cfg.LightWallpaper;
-            DarkWallpaperBox.Text = cfg.DarkWallpaper;
-            StartupToggle.IsOn = cfg.StartWithWindows;
-            NotificationsToggle.IsOn = cfg.ShowNotifications;
-            TrayDoubleClickCombo.SelectedIndex = cfg.TrayDoubleClickAction == "settings" ? 1 : 0;
-            PerMonitorToggle.IsOn = cfg.PerMonitorWallpaper;
-            _hotkey = cfg.Hotkey.Clone();
+        RebuildMonitorRows();
+        _monitorCount = _extraLightBoxes.Count + 1;
+        for (int i = 0; i < _extraLightBoxes.Count; i++)
+            _extraLightBoxes[i].Text = i < cfg.ExtraLightWallpapers.Count ? cfg.ExtraLightWallpapers[i] : string.Empty;
+        for (int i = 0; i < _extraDarkBoxes.Count; i++)
+            _extraDarkBoxes[i].Text = i < cfg.ExtraDarkWallpapers.Count ? cfg.ExtraDarkWallpapers[i] : string.Empty;
 
-            RebuildMonitorRows();
-            for (int i = 0; i < _extraLightBoxes.Count; i++)
-                _extraLightBoxes[i].Text = i < cfg.ExtraLightWallpapers.Count ? cfg.ExtraLightWallpapers[i] : string.Empty;
-            for (int i = 0; i < _extraDarkBoxes.Count; i++)
-                _extraDarkBoxes[i].Text = i < cfg.ExtraDarkWallpapers.Count ? cfg.ExtraDarkWallpapers[i] : string.Empty;
+        UpdateHotkeyText();
+        UpdateModePanelVisibility();
+        UpdateSunTimesDisplay();
+        UpdateWallpaperUi();
+    }
 
-            UpdateHotkeyText();
-            UpdateModePanelVisibility();
-            UpdateSunTimesDisplay();
-            UpdateWallpaperUi();
-        }
-        finally
+    // WM_DISPLAYCHANGE: monitors were added/removed while the window is open —
+    // rebuild the per-monitor rows when the count actually changed.
+    public void OnMonitorsChanged()
+    {
+        DispatcherQueue.TryEnqueue(() =>
         {
-            _loading = false;
-        }
+            int count = Math.Max(WallpaperService.GetMonitorCount(), 1);
+            if (count == _monitorCount)
+                return;
+
+            // Reload (rebuilds rows); unsaved edits are reset since the
+            // monitor topology changed.
+            LoadFromSettings();
+        });
     }
 
     // One row (light + dark pickers) per additional monitor, rebuilt on every
@@ -188,19 +197,13 @@ public sealed partial class SettingsWindow : Window
             {
                 var path = await PickImageFileAsync();
                 if (path != null)
-                {
                     lightBox.Text = path;
-                    ApplyChanges();
-                }
             };
             darkButton.Click += async (_, _) =>
             {
                 var path = await PickImageFileAsync();
                 if (path != null)
-                {
                     darkBox.Text = path;
-                    ApplyChanges();
-                }
             };
 
             MonitorWallpaperPanel.Children.Add(WrapWithBrowse(lightBox, lightButton));
@@ -245,13 +248,9 @@ public sealed partial class SettingsWindow : Window
         return grid;
     }
 
-    // Collects the whole UI state and persists it — settings apply instantly,
-    // Win11-Settings style (no Save button).
+    // Collects the whole UI state and persists it — invoked by the Apply button.
     private void ApplyChanges()
     {
-        if (_loading)
-            return;
-
         var cfg = SettingsService.Instance.Snapshot;
 
         cfg.ScheduleMode = ModeCombo.SelectedIndex switch
@@ -307,109 +306,9 @@ public sealed partial class SettingsWindow : Window
         StartupService.Apply(cfg.StartWithWindows);
     }
 
-    private void OnModeChanged(object sender, SelectionChangedEventArgs e)
+    // Apply button: validate, then persist the whole UI state.
+    private async void OnApplyClick(object sender, RoutedEventArgs e)
     {
-        UpdateModePanelVisibility();
-        ApplyChanges();
-    }
-
-    private void UpdateModePanelVisibility()
-    {
-        int idx = ModeCombo.SelectedIndex;
-        FixedHoursPanel.Visibility = idx == 1 ? Visibility.Visible : Visibility.Collapsed;
-        SunPanel.Visibility = idx == 2 ? Visibility.Visible : Visibility.Collapsed;
-        NightLightHint.Visibility = idx == 3 ? Visibility.Visible : Visibility.Collapsed;
-    }
-
-    private void OnScheduleChanged(object sender, TimePickerValueChangedEventArgs e) => ApplyChanges();
-
-    private void OnSettingToggled(object sender, RoutedEventArgs e) => ApplyChanges();
-
-    private void OnTrayActionChanged(object sender, SelectionChangedEventArgs e) => ApplyChanges();
-
-    // Capture the next key combination as the global hotkey.
-    private void OnHotkeyKeyDown(object sender, KeyRoutedEventArgs e)
-    {
-        e.Handled = true;
-
-        if (e.Key == Windows.System.VirtualKey.Escape)
-        {
-            UpdateHotkeyText();
-            return;
-        }
-
-        if (e.Key == Windows.System.VirtualKey.Back || e.Key == Windows.System.VirtualKey.Delete)
-        {
-            _hotkey = new HotkeyConfig();
-            UpdateHotkeyText();
-            ApplyChanges();
-            return;
-        }
-
-        bool win = (NativeMethods.GetKeyState(NativeMethods.VK_LWIN) & 0x8000) != 0 ||
-                   (NativeMethods.GetKeyState(NativeMethods.VK_RWIN) & 0x8000) != 0;
-        bool ctrl = (NativeMethods.GetKeyState(NativeMethods.VK_CONTROL) & 0x8000) != 0;
-        bool alt = (NativeMethods.GetKeyState(NativeMethods.VK_MENU) & 0x8000) != 0;
-        bool shift = (NativeMethods.GetKeyState(NativeMethods.VK_SHIFT) & 0x8000) != 0;
-
-        // Ignore bare modifier presses — show live preview
-        if (e.Key is Windows.System.VirtualKey.Control or Windows.System.VirtualKey.Shift or
-            Windows.System.VirtualKey.Menu or Windows.System.VirtualKey.LeftWindows or
-            Windows.System.VirtualKey.RightWindows)
-        {
-            HotkeyCapture.Text = FormatHotkey(new HotkeyConfig { Win = win, Ctrl = ctrl, Alt = alt, Shift = shift, Key = 0 });
-            return;
-        }
-
-        _hotkey = new HotkeyConfig { Win = win, Ctrl = ctrl, Alt = alt, Shift = shift, Key = (uint)e.Key };
-        UpdateHotkeyText();
-        ApplyChanges();
-    }
-
-    private async void OnGetLocationClick(object sender, RoutedEventArgs e)
-    {
-        GetLocationButton.IsEnabled = false;
-        try
-        {
-            var loc = await LocationService.TryGetLocationAsync();
-            if (loc is { } l)
-            {
-                LatitudeBox.Text = l.Latitude.ToString("F6", System.Globalization.CultureInfo.InvariantCulture);
-                LongitudeBox.Text = l.Longitude.ToString("F6", System.Globalization.CultureInfo.InvariantCulture);
-                ApplyChanges();
-            }
-            else
-            {
-                var dlg = new ContentDialog
-                {
-                    Title = "无法获取位置",
-                    Content = "请在 设置 → 隐私和安全性 → 位置 中开启定位服务，或手动填写经纬度。",
-                    CloseButtonText = "确定",
-                    XamlRoot = Content.XamlRoot,
-                };
-                await dlg.ShowAsync();
-            }
-        }
-        finally
-        {
-            GetLocationButton.IsEnabled = true;
-        }
-    }
-
-    private void OnSunInputsChanged(object sender, TextChangedEventArgs e) => UpdateSunTimesDisplay();
-
-    private void OnSunOffsetChanged(NumberBox sender, NumberBoxValueChangedEventArgs args)
-    {
-        UpdateSunTimesDisplay();
-        ApplyChanges();
-    }
-
-    // Commit latitude/longitude on focus loss with validation feedback.
-    private async void OnLatLonCommitted(object sender, RoutedEventArgs e)
-    {
-        if (_loading)
-            return;
-
         var latText = LatitudeBox.Text.Trim();
         var lonText = LongitudeBox.Text.Trim();
         bool latEmpty = latText.Length == 0;
@@ -449,6 +348,92 @@ public sealed partial class SettingsWindow : Window
         }
 
         ApplyChanges();
+    }
+
+    private void OnModeChanged(object sender, SelectionChangedEventArgs e)
+    {
+        UpdateModePanelVisibility();
+    }
+
+    private void UpdateModePanelVisibility()
+    {
+        int idx = ModeCombo.SelectedIndex;
+        FixedHoursPanel.Visibility = idx == 1 ? Visibility.Visible : Visibility.Collapsed;
+        SunPanel.Visibility = idx == 2 ? Visibility.Visible : Visibility.Collapsed;
+        NightLightHint.Visibility = idx == 3 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    // Capture the next key combination as the global hotkey.
+    private void OnHotkeyKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        e.Handled = true;
+
+        if (e.Key == Windows.System.VirtualKey.Escape)
+        {
+            UpdateHotkeyText();
+            return;
+        }
+
+        if (e.Key == Windows.System.VirtualKey.Back || e.Key == Windows.System.VirtualKey.Delete)
+        {
+            _hotkey = new HotkeyConfig();
+            UpdateHotkeyText();
+            return;
+        }
+
+        bool win = (NativeMethods.GetKeyState(NativeMethods.VK_LWIN) & 0x8000) != 0 ||
+                   (NativeMethods.GetKeyState(NativeMethods.VK_RWIN) & 0x8000) != 0;
+        bool ctrl = (NativeMethods.GetKeyState(NativeMethods.VK_CONTROL) & 0x8000) != 0;
+        bool alt = (NativeMethods.GetKeyState(NativeMethods.VK_MENU) & 0x8000) != 0;
+        bool shift = (NativeMethods.GetKeyState(NativeMethods.VK_SHIFT) & 0x8000) != 0;
+
+        // Ignore bare modifier presses — show live preview
+        if (e.Key is Windows.System.VirtualKey.Control or Windows.System.VirtualKey.Shift or
+            Windows.System.VirtualKey.Menu or Windows.System.VirtualKey.LeftWindows or
+            Windows.System.VirtualKey.RightWindows)
+        {
+            HotkeyCapture.Text = FormatHotkey(new HotkeyConfig { Win = win, Ctrl = ctrl, Alt = alt, Shift = shift, Key = 0 });
+            return;
+        }
+
+        _hotkey = new HotkeyConfig { Win = win, Ctrl = ctrl, Alt = alt, Shift = shift, Key = (uint)e.Key };
+        UpdateHotkeyText();
+    }
+
+    private async void OnGetLocationClick(object sender, RoutedEventArgs e)
+    {
+        GetLocationButton.IsEnabled = false;
+        try
+        {
+            var loc = await LocationService.TryGetLocationAsync();
+            if (loc is { } l)
+            {
+                LatitudeBox.Text = l.Latitude.ToString("F6", System.Globalization.CultureInfo.InvariantCulture);
+                LongitudeBox.Text = l.Longitude.ToString("F6", System.Globalization.CultureInfo.InvariantCulture);
+            }
+            else
+            {
+                var dlg = new ContentDialog
+                {
+                    Title = "无法获取位置",
+                    Content = "请在 设置 → 隐私和安全性 → 位置 中开启定位服务，或手动填写经纬度。",
+                    CloseButtonText = "确定",
+                    XamlRoot = Content.XamlRoot,
+                };
+                await dlg.ShowAsync();
+            }
+        }
+        finally
+        {
+            GetLocationButton.IsEnabled = true;
+        }
+    }
+
+    private void OnSunInputsChanged(object sender, TextChangedEventArgs e) => UpdateSunTimesDisplay();
+
+    private void OnSunOffsetChanged(NumberBox sender, NumberBoxValueChangedEventArgs args)
+    {
+        UpdateSunTimesDisplay();
     }
 
     // Show today's computed sunrise/sunset (and the effective times after offsets).
@@ -495,36 +480,18 @@ public sealed partial class SettingsWindow : Window
         }
     }
 
-    private void OnWallpaperToggled(object sender, RoutedEventArgs e)
-    {
-        UpdateWallpaperUi();
-        ApplyChanges();
-    }
-
-    private void OnPerMonitorToggled(object sender, RoutedEventArgs e)
-    {
-        UpdateWallpaperUi();
-        ApplyChanges();
-    }
-
     private async void OnPickLightWallpaper(object sender, RoutedEventArgs e)
     {
         var path = await PickImageFileAsync();
         if (path != null)
-        {
             LightWallpaperBox.Text = path;
-            ApplyChanges();
-        }
     }
 
     private async void OnPickDarkWallpaper(object sender, RoutedEventArgs e)
     {
         var path = await PickImageFileAsync();
         if (path != null)
-        {
             DarkWallpaperBox.Text = path;
-            ApplyChanges();
-        }
     }
 
     // FileOpenPicker needs a window handle to show up in a WinUI 3 desktop app.
@@ -548,7 +515,6 @@ public sealed partial class SettingsWindow : Window
     {
         _hotkey = new HotkeyConfig();
         UpdateHotkeyText();
-        ApplyChanges();
     }
 
     private void UpdateHotkeyText()
