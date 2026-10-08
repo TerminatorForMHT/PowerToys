@@ -31,11 +31,16 @@ public sealed partial class SettingsWindow : Window
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(TitleBarGrid);
 
-        // Resizable like other Fluent settings windows; the content column stays
-        // centered and width-capped so fullscreen still reads well.
+        // Resizable like other Fluent settings windows; the NavigationView adapts
+        // the layout when resized or maximized.
         var presenter = OverlappedPresenter.Create();
         presenter.IsResizable = true;
         AppWindow.SetPresenter(presenter);
+
+        // Re-assert after replacing the presenter: creating a new OverlappedPresenter
+        // resets AppWindow.TitleBar, whose standard (light) title bar would otherwise
+        // peek out as a white line across the top when the window is maximized.
+        AppWindow.TitleBar.ExtendsContentIntoTitleBar = true;
 
         // Scale the window by the display's DPI (e.g. 125% → 650×1050 on a 2K screen)
         _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
@@ -52,6 +57,9 @@ public sealed partial class SettingsWindow : Window
 
         ApplySystemTheme();
         LoadFromSettings();
+
+        // Select the first nav item (fires OnNavSelectionChanged once all controls exist).
+        NavView.SelectedItem = NavView.MenuItems[0];
     }
 
     // P/Invoke: DPI of the window's display (needed to scale the AppWindow size
@@ -62,6 +70,20 @@ public sealed partial class SettingsWindow : Window
     private void OnWindowClosed(object sender, WindowEventArgs args)
     {
         _uiSettings.ColorValuesChanged -= OnColorValuesChanged;
+    }
+
+    // Win11 Settings pattern: the left nav pane switches the visible section.
+    private void OnNavSelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
+    {
+        if (args.SelectedItem is not NavigationViewItem item)
+            return;
+
+        var tag = item.Tag as string;
+        SectionMode.Visibility = tag == "mode" ? Visibility.Visible : Visibility.Collapsed;
+        SectionScope.Visibility = tag == "scope" ? Visibility.Visible : Visibility.Collapsed;
+        SectionWallpaper.Visibility = tag == "wallpaper" ? Visibility.Visible : Visibility.Collapsed;
+        SectionGeneral.Visibility = tag == "general" ? Visibility.Visible : Visibility.Collapsed;
+        PageTitle.Text = item.Content as string ?? string.Empty;
     }
 
     private void OnColorValuesChanged(UISettings sender, object args)

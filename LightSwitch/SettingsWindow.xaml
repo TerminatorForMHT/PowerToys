@@ -9,7 +9,6 @@
     <Grid x:Name="RootGrid">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -22,80 +21,121 @@
             </StackPanel>
         </Grid>
 
-        <!-- Fluent settings pattern (Win11 Settings / Notepad settings): the page
-             header and content form a left-anchored column with a width cap.
-             On wide/maximized windows the column stays left-aligned and readable
-             instead of stretching or centering; the scrollbar keeps to the
-             window's right edge. -->
-        <TextBlock Grid.Row="1" Text="设置" Margin="24,8,24,16"
-                   Style="{ThemeResource TitleTextBlockStyle}" />
+        <!-- Win11 Settings structure: left navigation pane + capped content column -->
+        <NavigationView Grid.Row="1" x:Name="NavView"
+                        PaneDisplayMode="Auto" OpenPaneLength="200"
+                        IsBackButtonVisible="Collapsed" IsSettingsVisible="False"
+                        IsPaneToggleButtonVisible="True"
+                        IsTitleBarAutoPaddingEnabled="False"
+                        SelectionChanged="OnNavSelectionChanged">
+            <NavigationView.MenuItems>
+                <NavigationViewItem Content="计划模式" Tag="mode">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE787;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="应用范围" Tag="scope">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE790;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="桌面壁纸" Tag="wallpaper">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8B9;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="常规" Tag="general">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE713;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.MenuItems>
 
-        <Grid Grid.Row="2">
-            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <StackPanel Spacing="16" MaxWidth="600" HorizontalAlignment="Left" Margin="24,0,24,24">
-                    <TextBlock Text="计划模式" FontWeight="SemiBold" />
-                    <ComboBox x:Name="ModeCombo" HorizontalAlignment="Stretch" SelectionChanged="OnModeChanged">
-                        <ComboBoxItem Content="关闭" />
-                        <ComboBoxItem Content="固定时间" />
-                        <ComboBoxItem Content="日出到日落" />
-                        <ComboBoxItem Content="跟随夜览" />
-                    </ComboBox>
+            <NavigationView.Content>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
 
-                    <StackPanel x:Name="FixedHoursPanel" Spacing="8" Visibility="Collapsed">
-                        <Grid ColumnDefinitions="*,8,*">
-                            <TimePicker x:Name="LightTimePicker" Header="浅色开始时间" />
-                            <TimePicker x:Name="DarkTimePicker" Grid.Column="2" Header="深色开始时间" />
-                        </Grid>
-                    </StackPanel>
+                    <TextBlock x:Name="PageTitle" Text="计划模式" Margin="24,12,24,8"
+                               Style="{ThemeResource TitleTextBlockStyle}" />
 
-                    <StackPanel x:Name="SunPanel" Spacing="8" Visibility="Collapsed">
-                        <TextBox x:Name="LatitudeBox" Header="纬度" PlaceholderText="留空则自动使用系统定位" TextChanged="OnSunInputsChanged" />
-                        <TextBox x:Name="LongitudeBox" Header="经度" PlaceholderText="留空则自动使用系统定位" TextChanged="OnSunInputsChanged" />
-                        <Button x:Name="GetLocationButton" Content="使用系统定位" HorizontalAlignment="Left" Click="OnGetLocationClick" />
-                        <TextBlock x:Name="SunTimesText" Style="{ThemeResource BodyStrongTextBlockStyle}" TextWrapping="Wrap" />
-                        <Grid ColumnDefinitions="*,8,*">
-                            <NumberBox x:Name="SunriseOffsetBox" Header="日出偏移（分钟）" Minimum="-720" Maximum="720" SpinButtonPlacementMode="Inline" ValueChanged="OnSunOffsetChanged" />
-                            <NumberBox x:Name="SunsetOffsetBox" Grid.Column="2" Header="日落偏移（分钟）" Minimum="-720" Maximum="720" SpinButtonPlacementMode="Inline" ValueChanged="OnSunOffsetChanged" />
-                        </Grid>
-                    </StackPanel>
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                        <StackPanel MaxWidth="1000" HorizontalAlignment="Left" Margin="24,0,24,24" Spacing="16">
+                            <!-- Section: schedule mode -->
+                            <StackPanel x:Name="SectionMode" Spacing="16">
+                                <ComboBox x:Name="ModeCombo" HorizontalAlignment="Stretch" SelectionChanged="OnModeChanged">
+                                    <ComboBoxItem Content="关闭" />
+                                    <ComboBoxItem Content="固定时间" />
+                                    <ComboBoxItem Content="日出到日落" />
+                                    <ComboBoxItem Content="跟随夜览" />
+                                </ComboBox>
 
-                    <TextBlock x:Name="NightLightHint" Text="跟随系统夜览状态，无需额外设置。" Visibility="Collapsed" />
+                                <StackPanel x:Name="FixedHoursPanel" Spacing="8" Visibility="Collapsed">
+                                    <Grid ColumnDefinitions="*,8,*">
+                                        <TimePicker x:Name="LightTimePicker" Header="浅色开始时间" />
+                                        <TimePicker x:Name="DarkTimePicker" Grid.Column="2" Header="深色开始时间" />
+                                    </Grid>
+                                </StackPanel>
 
-                    <TextBlock Text="应用范围" FontWeight="SemiBold" />
-                    <ToggleSwitch x:Name="SystemToggle" Header="系统主题（任务栏、开始菜单）" />
-                    <ToggleSwitch x:Name="AppsToggle" Header="应用主题" />
+                                <StackPanel x:Name="SunPanel" Spacing="8" Visibility="Collapsed">
+                                    <TextBox x:Name="LatitudeBox" Header="纬度" PlaceholderText="留空则自动使用系统定位" TextChanged="OnSunInputsChanged" />
+                                    <TextBox x:Name="LongitudeBox" Header="经度" PlaceholderText="留空则自动使用系统定位" TextChanged="OnSunInputsChanged" />
+                                    <Button x:Name="GetLocationButton" Content="使用系统定位" HorizontalAlignment="Left" Click="OnGetLocationClick" />
+                                    <TextBlock x:Name="SunTimesText" Style="{ThemeResource BodyStrongTextBlockStyle}" TextWrapping="Wrap" />
+                                    <Grid ColumnDefinitions="*,8,*">
+                                        <NumberBox x:Name="SunriseOffsetBox" Header="日出偏移（分钟）" Minimum="-720" Maximum="720" SpinButtonPlacementMode="Inline" ValueChanged="OnSunOffsetChanged" />
+                                        <NumberBox x:Name="SunsetOffsetBox" Grid.Column="2" Header="日落偏移（分钟）" Minimum="-720" Maximum="720" SpinButtonPlacementMode="Inline" ValueChanged="OnSunOffsetChanged" />
+                                    </Grid>
+                                </StackPanel>
 
-                    <TextBlock Text="桌面壁纸" FontWeight="SemiBold" />
-                    <ToggleSwitch x:Name="WallpaperToggle" Header="随主题切换壁纸" Toggled="OnWallpaperToggled" />
-                    <StackPanel x:Name="WallpaperPanel" Spacing="8" Visibility="Collapsed">
-                        <Grid ColumnDefinitions="*,8,Auto">
-                            <TextBox x:Name="LightWallpaperBox" Header="浅色模式壁纸" PlaceholderText="选择浅色模式使用的图片" IsReadOnly="True" />
-                            <Button x:Name="PickLightWallpaperButton" Grid.Column="2" Content="浏览..." VerticalAlignment="Bottom" Click="OnPickLightWallpaper" />
-                        </Grid>
-                        <Grid ColumnDefinitions="*,8,Auto">
-                            <TextBox x:Name="DarkWallpaperBox" Header="深色模式壁纸" PlaceholderText="选择深色模式使用的图片" IsReadOnly="True" />
-                            <Button x:Name="PickDarkWallpaperButton" Grid.Column="2" Content="浏览..." VerticalAlignment="Bottom" Click="OnPickDarkWallpaper" />
-                        </Grid>
-                        <TextBlock Text="切换主题时将同时更换桌面壁纸。支持 JPG / PNG / BMP。" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
-                    </StackPanel>
+                                <TextBlock x:Name="NightLightHint" Text="跟随系统夜览状态，无需额外设置。" Visibility="Collapsed" />
+                            </StackPanel>
 
-                    <TextBlock Text="启动" FontWeight="SemiBold" />
-                    <ToggleSwitch x:Name="StartupToggle" Header="开机时自动启动" />
+                            <!-- Section: theme scope -->
+                            <StackPanel x:Name="SectionScope" Spacing="8" Visibility="Collapsed">
+                                <ToggleSwitch x:Name="SystemToggle" Header="系统主题（任务栏、开始菜单）" />
+                                <ToggleSwitch x:Name="AppsToggle" Header="应用主题" />
+                            </StackPanel>
 
-                    <TextBlock Text="切换快捷键" FontWeight="SemiBold" />
-                    <Grid ColumnDefinitions="*,8,Auto">
-                        <TextBox x:Name="HotkeyCapture" IsReadOnly="True" PlaceholderText="点击后按下快捷键" KeyDown="OnHotkeyKeyDown" />
-                        <Button x:Name="ClearHotkeyButton" Grid.Column="2" Content="清除" Click="OnClearHotkeyClick" />
-                    </Grid>
+                            <!-- Section: wallpaper -->
+                            <StackPanel x:Name="SectionWallpaper" Spacing="8" Visibility="Collapsed">
+                                <ToggleSwitch x:Name="WallpaperToggle" Header="随主题切换壁纸" Toggled="OnWallpaperToggled" />
+                                <StackPanel x:Name="WallpaperPanel" Spacing="8" Visibility="Collapsed">
+                                    <Grid ColumnDefinitions="*,8,Auto">
+                                        <TextBox x:Name="LightWallpaperBox" Header="浅色模式壁纸" PlaceholderText="选择浅色模式使用的图片" IsReadOnly="True" />
+                                        <Button x:Name="PickLightWallpaperButton" Grid.Column="2" Content="浏览..." VerticalAlignment="Bottom" Click="OnPickLightWallpaper" />
+                                    </Grid>
+                                    <Grid ColumnDefinitions="*,8,Auto">
+                                        <TextBox x:Name="DarkWallpaperBox" Header="深色模式壁纸" PlaceholderText="选择深色模式使用的图片" IsReadOnly="True" />
+                                        <Button x:Name="PickDarkWallpaperButton" Grid.Column="2" Content="浏览..." VerticalAlignment="Bottom" Click="OnPickDarkWallpaper" />
+                                    </Grid>
+                                    <TextBlock Text="切换主题时将同时更换桌面壁纸。支持 JPG / PNG / BMP。" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </StackPanel>
 
-                    <!-- Save right-aligned (Apply pattern from Fluent settings pages);
-                         dismissal is via the window X. -->
-                    <Grid Margin="0,12,0,0">
+                            <!-- Section: general (startup + hotkey) -->
+                            <StackPanel x:Name="SectionGeneral" Spacing="8" Visibility="Collapsed">
+                                <ToggleSwitch x:Name="StartupToggle" Header="开机时自动启动" />
+                                <TextBlock Text="切换快捷键" FontWeight="SemiBold" Margin="0,16,0,0" />
+                                <Grid ColumnDefinitions="*,8,Auto">
+                                    <TextBox x:Name="HotkeyCapture" IsReadOnly="True" PlaceholderText="点击后按下快捷键" KeyDown="OnHotkeyKeyDown" />
+                                    <Button x:Name="ClearHotkeyButton" Grid.Column="2" Content="清除" Click="OnClearHotkeyClick" />
+                                </Grid>
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <!-- Save always visible at the bottom right, like an Apply bar -->
+                    <Grid Grid.Row="2" Height="56">
                         <Button Content="保存" Style="{ThemeResource AccentButtonStyle}"
-                                HorizontalAlignment="Right" MinWidth="100" Click="OnSaveClick" />
+                                HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,24,0"
+                                MinWidth="100" Click="OnSaveClick" />
                     </Grid>
-                </StackPanel>
-            </ScrollViewer>
-        </Grid>
+                </Grid>
+            </NavigationView.Content>
+        </NavigationView>
     </Grid>
 </Window>
