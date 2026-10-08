@@ -97,4 +97,4 @@ LightSwitch/
 
 ## 许可证
 
-基于 [MIT 许可证](https://github.com/microsoft/PowerToys/blob/main/LICENSE) 发布，源自 Microsoft PowerToys 项目。
+基于 [MIT](LICENSE) 许可证发布，源自 [Microsoft PowerToys](https://github.com/microsoft/PowerToys) 项目。
