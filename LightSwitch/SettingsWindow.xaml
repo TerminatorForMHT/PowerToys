@@ -22,17 +22,17 @@
             </StackPanel>
         </Grid>
 
-        <!-- Page header + content share the same width-capped, centered column
-             (Win11 Settings pattern): fullscreen stays readable, small windows
-             look unchanged. -->
-        <Grid Grid.Row="1" MaxWidth="600" HorizontalAlignment="Center">
-            <TextBlock Text="设置" Padding="24,8,24,16"
-                       Style="{ThemeResource TitleTextBlockStyle}" />
-        </Grid>
+        <!-- Fluent settings pattern (Win11 Settings / Notepad settings): the page
+             header and content form a left-anchored column with a width cap.
+             On wide/maximized windows the column stays left-aligned and readable
+             instead of stretching or centering; the scrollbar keeps to the
+             window's right edge. -->
+        <TextBlock Grid.Row="1" Text="设置" Margin="24,8,24,16"
+                   Style="{ThemeResource TitleTextBlockStyle}" />
 
-        <Grid Grid.Row="2" MaxWidth="600" HorizontalAlignment="Center" Padding="24,0,24,24">
+        <Grid Grid.Row="2">
             <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <StackPanel Spacing="16" Margin="0,0,12,0">
+                <StackPanel Spacing="16" MaxWidth="600" HorizontalAlignment="Left" Margin="24,0,24,24">
                     <TextBlock Text="计划模式" FontWeight="SemiBold" />
                     <ComboBox x:Name="ModeCombo" HorizontalAlignment="Stretch" SelectionChanged="OnModeChanged">
                         <ComboBoxItem Content="关闭" />
