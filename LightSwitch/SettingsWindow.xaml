@@ -22,15 +22,17 @@
             </StackPanel>
         </Grid>
 
-        <!-- Page header -->
-        <TextBlock Grid.Row="1" Text="设置" Padding="24,8,24,16"
-                   Style="{ThemeResource TitleTextBlockStyle}" />
+        <!-- Page header + content share the same width-capped, centered column
+             (Win11 Settings pattern): fullscreen stays readable, small windows
+             look unchanged. -->
+        <Grid Grid.Row="1" MaxWidth="600" HorizontalAlignment="Center">
+            <TextBlock Text="设置" Padding="24,8,24,16"
+                       Style="{ThemeResource TitleTextBlockStyle}" />
+        </Grid>
 
-        <Grid Grid.Row="2" Padding="24,0,10,24">
+        <Grid Grid.Row="2" MaxWidth="600" HorizontalAlignment="Center" Padding="24,0,24,24">
             <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <!-- MaxWidth + centered: on wide screens the content stays readable
-                     instead of stretching edge-to-edge (Fluent settings pattern). -->
-                <StackPanel Spacing="16" Margin="0,0,12,0" MaxWidth="480" HorizontalAlignment="Center">
+                <StackPanel Spacing="16" Margin="0,0,12,0">
                     <TextBlock Text="计划模式" FontWeight="SemiBold" />
                     <ComboBox x:Name="ModeCombo" HorizontalAlignment="Stretch" SelectionChanged="OnModeChanged">
                         <ComboBoxItem Content="关闭" />
@@ -86,8 +88,8 @@
                         <Button x:Name="ClearHotkeyButton" Grid.Column="2" Content="清除" Click="OnClearHotkeyClick" />
                     </Grid>
 
-                    <!-- Save only: cancel via window X (Fluent convention for non-resizable
-                         settings dialogs). Save right-aligned to match Win11 Settings. -->
+                    <!-- Save right-aligned (Apply pattern from Fluent settings pages);
+                         dismissal is via the window X. -->
                     <Grid Margin="0,12,0,0">
                         <Button Content="保存" Style="{ThemeResource AccentButtonStyle}"
                                 HorizontalAlignment="Right" MinWidth="100" Click="OnSaveClick" />
