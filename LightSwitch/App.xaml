@@ -27,6 +27,8 @@
                 DoubleClickCommand="{StaticResource ToggleThemeCommand}">
                 <tb:TaskbarIcon.ContextFlyout>
                     <MenuFlyout x:Name="TrayMenuFlyout">
+                        <MenuFlyoutItem x:Name="TrayStateItem" IsEnabled="False" Text="当前主题：—" />
+                        <MenuFlyoutSeparator />
                         <MenuFlyoutItem Command="{StaticResource ToggleThemeCommand}" />
                         <MenuFlyoutSubItem Text="模式">
                             <RadioMenuFlyoutItem x:Name="TrayModeOff" GroupName="ScheduleMode" Command="{StaticResource ModeOffCommand}" />

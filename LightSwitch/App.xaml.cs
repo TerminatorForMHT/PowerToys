@@ -94,15 +94,18 @@ public partial class App : Application
             });
     }
 
-    // Sync the checked radio item in the tray menu with current settings.
+    // Sync the tray menu with current settings and theme state.
     private void UpdateTrayModeChecks()
     {
-        if (_trayIcon?.ContextFlyout is not MenuFlyout flyout || flyout.Items.Count < 2)
+        if (_trayIcon?.ContextFlyout is not MenuFlyout flyout)
             return;
 
         var mode = SettingsService.Instance.Snapshot.ScheduleMode;
+        if (Resources["TrayStateItem"] is MenuFlyoutItem stateItem)
+            stateItem.Text = "当前主题：" + (ThemeService.GetCurrentAppsTheme() ? "浅色" : "深色");
 
-        if (flyout.Items[1] is MenuFlyoutSubItem modeSubItem)
+        var modeSubItem = flyout.Items.OfType<MenuFlyoutSubItem>().FirstOrDefault();
+        if (modeSubItem != null)
         {
             foreach (var item in modeSubItem.Items)
             {

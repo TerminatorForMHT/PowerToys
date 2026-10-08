@@ -22,7 +22,25 @@ internal static class Logger
             {
                 var logDir = Path.Combine(SettingsService.AppDataDir, "logs");
                 Directory.CreateDirectory(logDir);
-                _file = new StreamWriter(Path.Combine(logDir, appName + ".log"), append: true, Encoding.UTF8)
+                var logPath = Path.Combine(logDir, appName + ".log");
+
+                // Rotate: a tray app can run for months — keep one generation (.old)
+                // and start fresh whenever the log exceeds ~1 MB.
+                try
+                {
+                    if (File.Exists(logPath) && new FileInfo(logPath).Length > 1024 * 1024)
+                    {
+                        var oldPath = Path.Combine(logDir, appName + ".old.log");
+                        File.Delete(oldPath);
+                        File.Move(logPath, oldPath);
+                    }
+                }
+                catch
+                {
+                    // Rotation is best-effort; fall through and keep appending.
+                }
+
+                _file = new StreamWriter(logPath, append: true, Encoding.UTF8)
                 {
                     AutoFlush = true,
                 };
