@@ -15,6 +15,7 @@
             <XamlUICommand x:Key="ModeFixedCommand" Label="固定时间" />
             <XamlUICommand x:Key="ModeSunCommand" Label="日出到日落" />
             <XamlUICommand x:Key="ModeNightLightCommand" Label="跟随夜览" />
+            <XamlUICommand x:Key="TrayDoubleClickCommand" />
             <XamlUICommand x:Key="OpenSettingsCommand" Label="设置..." />
             <XamlUICommand x:Key="ExitCommand" Label="退出" />
 
@@ -24,7 +25,7 @@
                 ContextMenuMode="SecondWindow"
                 NoLeftClickDelay="True"
                 IconSource="\Assets\LightSwitch.ico"
-                DoubleClickCommand="{StaticResource ToggleThemeCommand}">
+                DoubleClickCommand="{StaticResource TrayDoubleClickCommand}">
                 <tb:TaskbarIcon.ContextFlyout>
                     <MenuFlyout x:Name="TrayMenuFlyout">
                         <MenuFlyoutItem x:Name="TrayStateItem" IsEnabled="False" Text="当前主题：—" />

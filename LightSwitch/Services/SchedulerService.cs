@@ -72,6 +72,15 @@ internal sealed class SchedulerService : IDisposable
             Logger.Info($"[Scheduler] Manual toggle: apps theme to {(current ? "dark" : "light")}.");
         }
 
+        // Wallpaper follows the manual toggle too.
+        bool newIsLight = snap.ChangeApps
+            ? ThemeService.GetCurrentAppsTheme()
+            : (snap.ChangeSystem ? ThemeService.GetCurrentSystemTheme() : false);
+        WallpaperService.ApplyForTheme(newIsLight, snap);
+
+        if (snap.ShowNotifications)
+            NotificationService.ShowThemeChanged(newIsLight);
+
         _manualOverrideEvent.Set();
     }
 
@@ -444,5 +453,8 @@ internal sealed class SchedulerService : IDisposable
         }
         // Swap the desktop wallpaper along with the theme (Auto Dark Mode style).
         WallpaperService.ApplyForTheme(shouldBeLight, settings);
+
+        if (settings.ShowNotifications)
+            NotificationService.ShowThemeChanged(shouldBeLight);
     }
 }

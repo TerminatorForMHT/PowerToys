@@ -60,9 +60,21 @@ public sealed class LightSwitchConfig
 
     // Desktop wallpaper switching: optionally pick a different wallpaper for
     // light / dark mode (mirrors Auto Dark Mode's "Switch wallpaper" feature).
+    // Wallpapers for additional monitors (per-monitor, index 2/3); monitor 1
+    // uses LightWallpaper/DarkWallpaper. Empty = reuse monitor 1's image.
     public bool ChangeWallpaper { get; set; }
     public string LightWallpaper { get; set; } = string.Empty;
     public string DarkWallpaper { get; set; } = string.Empty;
+    public string LightWallpaper2 { get; set; } = string.Empty;
+    public string DarkWallpaper2 { get; set; } = string.Empty;
+    public string LightWallpaper3 { get; set; } = string.Empty;
+    public string DarkWallpaper3 { get; set; } = string.Empty;
+
+    // Show a toast notification whenever the theme switches.
+    public bool ShowNotifications { get; set; } = true;
+
+    // What a double-click on the tray icon does: "toggle" (default) or "settings".
+    public string TrayDoubleClickAction { get; set; } = "toggle";
 
     public LightSwitchConfig Clone()
     {
@@ -145,6 +157,12 @@ public sealed class SettingsService : IDisposable
                 cfg.ChangeWallpaper = ReadBool(j, "changeWallpaper", cfg.ChangeWallpaper);
                 cfg.LightWallpaper = ReadString(j, "lightWallpaper", cfg.LightWallpaper);
                 cfg.DarkWallpaper = ReadString(j, "darkWallpaper", cfg.DarkWallpaper);
+                cfg.LightWallpaper2 = ReadString(j, "lightWallpaper2", cfg.LightWallpaper2);
+                cfg.DarkWallpaper2 = ReadString(j, "darkWallpaper2", cfg.DarkWallpaper2);
+                cfg.LightWallpaper3 = ReadString(j, "lightWallpaper3", cfg.LightWallpaper3);
+                cfg.DarkWallpaper3 = ReadString(j, "darkWallpaper3", cfg.DarkWallpaper3);
+                cfg.ShowNotifications = ReadBool(j, "showNotifications", cfg.ShowNotifications);
+                cfg.TrayDoubleClickAction = ReadString(j, "trayDoubleClickAction", cfg.TrayDoubleClickAction);
 
                 if (j["hotkey"] is JsonObject hk)
                 {
@@ -188,6 +206,12 @@ public sealed class SettingsService : IDisposable
                     ["changeWallpaper"] = cfg.ChangeWallpaper,
                     ["lightWallpaper"] = cfg.LightWallpaper,
                     ["darkWallpaper"] = cfg.DarkWallpaper,
+                    ["lightWallpaper2"] = cfg.LightWallpaper2,
+                    ["darkWallpaper2"] = cfg.DarkWallpaper2,
+                    ["lightWallpaper3"] = cfg.LightWallpaper3,
+                    ["darkWallpaper3"] = cfg.DarkWallpaper3,
+                    ["showNotifications"] = cfg.ShowNotifications,
+                    ["trayDoubleClickAction"] = cfg.TrayDoubleClickAction,
                     ["hotkey"] = new JsonObject
                     {
                         ["win"] = cfg.Hotkey.Win,

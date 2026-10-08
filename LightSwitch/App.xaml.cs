@@ -55,7 +55,7 @@ public partial class App : Application
         _hotkey = new HotkeyService();
         _hotkey.HotkeyPressed += (_, _) => _scheduler.ToggleThemeNow();
         _hotkey.Start();
-        _hotkey.Apply(SettingsService.Instance.Snapshot.Hotkey);
+        ApplyHotkeyWithFeedback(SettingsService.Instance.Snapshot.Hotkey);
 
         SettingsService.Instance.Changed += OnSettingsChanged;
 
@@ -64,6 +64,7 @@ public partial class App : Application
         HookUpCommand("ModeFixedCommand", (_, _) => SetMode(ScheduleMode.FixedHours));
         HookUpCommand("ModeSunCommand", (_, _) => SetMode(ScheduleMode.SunsetToSunrise));
         HookUpCommand("ModeNightLightCommand", (_, _) => SetMode(ScheduleMode.FollowNightLight));
+        HookUpCommand("TrayDoubleClickCommand", (_, _) => OnTrayDoubleClick());
         HookUpCommand("OpenSettingsCommand", (_, _) => ShowSettingsWindow());
         HookUpCommand("ExitCommand", (_, _) => ExitApp());
 
@@ -74,6 +75,34 @@ public partial class App : Application
 
         // SecondWindow mode: Opening may not fire on first open — sync immediately.
         UpdateTrayModeChecks();
+    }
+
+    // Register the hotkey and surface conflicts to the user via toast.
+    private void ApplyHotkeyWithFeedback(HotkeyConfig hotkey)
+    {
+        if (_hotkey == null)
+            return;
+
+        bool ok = _hotkey.Apply(hotkey);
+        if (!ok && hotkey.Key != 0)
+        {
+            var mods = new List<string>();
+            if (hotkey.Win) mods.Add("Win");
+            if (hotkey.Ctrl) mods.Add("Ctrl");
+            if (hotkey.Alt) mods.Add("Alt");
+            if (hotkey.Shift) mods.Add("Shift");
+            mods.Add(((Windows.System.VirtualKey)hotkey.Key).ToString());
+            NotificationService.ShowError($"快捷键 {string.Join(" + ", mods)} 注册失败，可能已被其他程序占用。");
+        }
+    }
+
+    // Double-click on the tray icon: toggle theme (default) or open settings.
+    private void OnTrayDoubleClick()
+    {
+        if (SettingsService.Instance.Snapshot.TrayDoubleClickAction == "settings")
+            ShowSettingsWindow();
+        else
+            _scheduler?.ToggleThemeNow();
     }
 
     private void HookUpCommand(string resourceKey, TypedEventHandler<XamlUICommand, ExecuteRequestedEventArgs> handler)
@@ -89,7 +118,7 @@ public partial class App : Application
         if (_uiDispatcher is { } dq)
             dq.TryEnqueue(() =>
             {
-                _hotkey?.Apply(SettingsService.Instance.Snapshot.Hotkey);
+                ApplyHotkeyWithFeedback(SettingsService.Instance.Snapshot.Hotkey);
                 UpdateTrayModeChecks();
             });
     }
@@ -101,7 +130,10 @@ public partial class App : Application
             return;
 
         var mode = SettingsService.Instance.Snapshot.ScheduleMode;
-        if (Resources["TrayStateItem"] is MenuFlyoutItem stateItem)
+        // x:Name inside a ResourceDictionary-defined TaskbarIcon does not generate
+        // a code field and the item is not in the app-level Resources map (lookup
+        // would throw), so locate the state item positionally (first flyout item).
+        if (flyout.Items.FirstOrDefault() is MenuFlyoutItem stateItem)
             stateItem.Text = "当前主题：" + (ThemeService.GetCurrentAppsTheme() ? "浅色" : "深色");
 
         var modeSubItem = flyout.Items.OfType<MenuFlyoutSubItem>().FirstOrDefault();

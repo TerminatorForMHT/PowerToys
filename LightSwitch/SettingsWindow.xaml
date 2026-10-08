@@ -16,7 +16,7 @@
         <Grid x:Name="TitleBarGrid" Height="32" Canvas.ZIndex="1">
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
                 <Image Source="/Assets/Square44x44Logo.png" Width="16" Height="16" />
-                <TextBlock Text="LightSwitch 设置" Margin="8,0,0,0" VerticalAlignment="Center"
+                <TextBlock Text="LightSwitch" Margin="8,0,0,0" VerticalAlignment="Center"
                            Style="{ThemeResource CaptionTextBlockStyle}" />
             </StackPanel>
         </Grid>
@@ -59,7 +59,6 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
-                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
                     <TextBlock x:Name="PageTitle" Text="计划模式" Margin="24,12,24,8"
@@ -78,14 +77,16 @@
 
                                 <StackPanel x:Name="FixedHoursPanel" Spacing="8" Visibility="Collapsed">
                                     <Grid ColumnDefinitions="*,8,*">
-                                        <TimePicker x:Name="LightTimePicker" Header="浅色开始时间" />
-                                        <TimePicker x:Name="DarkTimePicker" Grid.Column="2" Header="深色开始时间" />
+                                        <TimePicker x:Name="LightTimePicker" Header="浅色开始时间" TimeChanged="OnScheduleChanged" />
+                                        <TimePicker x:Name="DarkTimePicker" Grid.Column="2" Header="深色开始时间" TimeChanged="OnScheduleChanged" />
                                     </Grid>
                                 </StackPanel>
 
                                 <StackPanel x:Name="SunPanel" Spacing="8" Visibility="Collapsed">
-                                    <TextBox x:Name="LatitudeBox" Header="纬度" PlaceholderText="留空则自动使用系统定位" TextChanged="OnSunInputsChanged" />
-                                    <TextBox x:Name="LongitudeBox" Header="经度" PlaceholderText="留空则自动使用系统定位" TextChanged="OnSunInputsChanged" />
+                                    <Grid ColumnDefinitions="*,8,*">
+                                        <TextBox x:Name="LatitudeBox" Header="纬度" PlaceholderText="留空则自动使用系统定位" TextChanged="OnSunInputsChanged" LostFocus="OnLatLonCommitted" />
+                                        <TextBox x:Name="LongitudeBox" Grid.Column="2" Header="经度" PlaceholderText="留空则自动使用系统定位" TextChanged="OnSunInputsChanged" LostFocus="OnLatLonCommitted" />
+                                    </Grid>
                                     <Button x:Name="GetLocationButton" Content="使用系统定位" HorizontalAlignment="Left" Click="OnGetLocationClick" />
                                     <TextBlock x:Name="SunTimesText" Style="{ThemeResource BodyStrongTextBlockStyle}" TextWrapping="Wrap" />
                                     <Grid ColumnDefinitions="*,8,*">
@@ -99,8 +100,8 @@
 
                             <!-- Section: theme scope -->
                             <StackPanel x:Name="SectionScope" Spacing="8" Visibility="Collapsed">
-                                <ToggleSwitch x:Name="SystemToggle" Header="系统主题（任务栏、开始菜单）" />
-                                <ToggleSwitch x:Name="AppsToggle" Header="应用主题" />
+                                <ToggleSwitch x:Name="SystemToggle" Header="系统主题（任务栏、开始菜单）" Toggled="OnSettingToggled" />
+                                <ToggleSwitch x:Name="AppsToggle" Header="应用主题" Toggled="OnSettingToggled" />
                             </StackPanel>
 
                             <!-- Section: wallpaper -->
@@ -108,20 +109,27 @@
                                 <ToggleSwitch x:Name="WallpaperToggle" Header="随主题切换壁纸" Toggled="OnWallpaperToggled" />
                                 <StackPanel x:Name="WallpaperPanel" Spacing="8" Visibility="Collapsed">
                                     <Grid ColumnDefinitions="*,8,Auto">
-                                        <TextBox x:Name="LightWallpaperBox" Header="浅色模式壁纸" PlaceholderText="选择浅色模式使用的图片" IsReadOnly="True" />
+                                        <TextBox x:Name="LightWallpaperBox" Header="显示器 1 · 浅色壁纸" PlaceholderText="选择浅色模式使用的图片" IsReadOnly="True" />
                                         <Button x:Name="PickLightWallpaperButton" Grid.Column="2" Content="浏览..." VerticalAlignment="Bottom" Click="OnPickLightWallpaper" />
                                     </Grid>
                                     <Grid ColumnDefinitions="*,8,Auto">
-                                        <TextBox x:Name="DarkWallpaperBox" Header="深色模式壁纸" PlaceholderText="选择深色模式使用的图片" IsReadOnly="True" />
+                                        <TextBox x:Name="DarkWallpaperBox" Header="显示器 1 · 深色壁纸" PlaceholderText="选择深色模式使用的图片" IsReadOnly="True" />
                                         <Button x:Name="PickDarkWallpaperButton" Grid.Column="2" Content="浏览..." VerticalAlignment="Bottom" Click="OnPickDarkWallpaper" />
                                     </Grid>
-                                    <TextBlock Text="切换主题时将同时更换桌面壁纸。支持 JPG / PNG / BMP。" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                                    <!-- Rows for monitors 2..3 are generated in code-behind -->
+                                    <StackPanel x:Name="MonitorWallpaperPanel" Spacing="8" />
+                                    <TextBlock Text="每个显示器可单独指定浅色 / 深色壁纸，留空则沿用显示器 1 的图片。支持 JPG / PNG / BMP。" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                                 </StackPanel>
                             </StackPanel>
 
-                            <!-- Section: general (startup + hotkey) -->
+                            <!-- Section: general (startup + hotkey + tray + notifications) -->
                             <StackPanel x:Name="SectionGeneral" Spacing="8" Visibility="Collapsed">
-                                <ToggleSwitch x:Name="StartupToggle" Header="开机时自动启动" />
+                                <ToggleSwitch x:Name="StartupToggle" Header="开机时自动启动" Toggled="OnSettingToggled" />
+                                <ToggleSwitch x:Name="NotificationsToggle" Header="切换主题时显示系统通知" Toggled="OnSettingToggled" />
+                                <ComboBox x:Name="TrayDoubleClickCombo" Header="双击托盘图标" SelectedIndex="0" SelectionChanged="OnTrayActionChanged">
+                                    <ComboBoxItem Content="切换主题" />
+                                    <ComboBoxItem Content="打开设置" />
+                                </ComboBox>
                                 <TextBlock Text="切换快捷键" FontWeight="SemiBold" Margin="0,16,0,0" />
                                 <Grid ColumnDefinitions="*,8,Auto">
                                     <TextBox x:Name="HotkeyCapture" IsReadOnly="True" PlaceholderText="点击后按下快捷键" KeyDown="OnHotkeyKeyDown" />
@@ -130,13 +138,6 @@
                             </StackPanel>
                         </StackPanel>
                     </ScrollViewer>
-
-                    <!-- Save always visible at the bottom right, like an Apply bar -->
-                    <Grid Grid.Row="2" Height="56">
-                        <Button Content="保存" Style="{ThemeResource AccentButtonStyle}"
-                                HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,24,0"
-                                MinWidth="100" Click="OnSaveClick" />
-                    </Grid>
                 </Grid>
             </NavigationView.Content>
         </NavigationView>

@@ -17,11 +17,18 @@ public sealed partial class SettingsWindow : Window
     private HotkeyConfig _hotkey = new();
     private System.IntPtr _hwnd;
 
+    // Guard: control mutations during LoadFromSettings must not re-persist settings.
+    private bool _loading;
+
+    // Per-monitor wallpaper text boxes (monitors 2..3), created in the ctor.
+    private readonly List<TextBox> _extraLightBoxes = new();
+    private readonly List<TextBox> _extraDarkBoxes = new();
+
     public SettingsWindow()
     {
         InitializeComponent();
 
-        Title = "LightSwitch 设置";
+        Title = "LightSwitch";
 
         // Windows 11 Mica backdrop
         if (MicaController.IsSupported())
@@ -56,6 +63,7 @@ public sealed partial class SettingsWindow : Window
         _uiSettings.ColorValuesChanged += OnColorValuesChanged;
         Closed += OnWindowClosed;
 
+        CreateMonitorWallpaperRows();
         ApplySystemTheme();
         LoadFromSettings();
 
@@ -112,40 +120,171 @@ public sealed partial class SettingsWindow : Window
 
     private void LoadFromSettings()
     {
+        _loading = true;
+        try
+        {
+            var cfg = SettingsService.Instance.Snapshot;
+
+            ModeCombo.SelectedIndex = cfg.ScheduleMode switch
+            {
+                ScheduleMode.Off => 0,
+                ScheduleMode.FixedHours => 1,
+                ScheduleMode.SunsetToSunrise => 2,
+                ScheduleMode.FollowNightLight => 3,
+                _ => 0,
+            };
+
+            LightTimePicker.Time = TimeSpan.FromMinutes(((cfg.LightTime % 1440) + 1440) % 1440);
+            DarkTimePicker.Time = TimeSpan.FromMinutes(((cfg.DarkTime % 1440) + 1440) % 1440);
+            // "0.0"/"0.0" is the persisted sentinel for "use system location".
+            LatitudeBox.Text = cfg.Latitude == "0.0" ? string.Empty : cfg.Latitude;
+            LongitudeBox.Text = cfg.Longitude == "0.0" ? string.Empty : cfg.Longitude;
+            SunriseOffsetBox.Value = cfg.SunriseOffset;
+            SunsetOffsetBox.Value = cfg.SunsetOffset;
+            SystemToggle.IsOn = cfg.ChangeSystem;
+            AppsToggle.IsOn = cfg.ChangeApps;
+            WallpaperToggle.IsOn = cfg.ChangeWallpaper;
+            LightWallpaperBox.Text = cfg.LightWallpaper;
+            DarkWallpaperBox.Text = cfg.DarkWallpaper;
+            for (int i = 0; i < _extraLightBoxes.Count; i++)
+            {
+                var l = i == 0 ? cfg.LightWallpaper2 : cfg.LightWallpaper3;
+                var d = i == 0 ? cfg.DarkWallpaper2 : cfg.DarkWallpaper3;
+                _extraLightBoxes[i].Text = l;
+                _extraDarkBoxes[i].Text = d;
+            }
+            StartupToggle.IsOn = cfg.StartWithWindows;
+            NotificationsToggle.IsOn = cfg.ShowNotifications;
+            TrayDoubleClickCombo.SelectedIndex = cfg.TrayDoubleClickAction == "settings" ? 1 : 0;
+            _hotkey = cfg.Hotkey.Clone();
+
+            UpdateHotkeyText();
+            UpdateModePanelVisibility();
+            UpdateSunTimesDisplay();
+            WallpaperPanel.Visibility = WallpaperToggle.IsOn ? Visibility.Visible : Visibility.Collapsed;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    // One row (light + dark pickers) per additional monitor, up to 3 monitors.
+    private void CreateMonitorWallpaperRows()
+    {
+        int count = Math.Min(Math.Max(WallpaperService.GetMonitorCount(), 1), 3);
+        for (int m = 1; m < count; m++)
+        {
+            var lightBox = new TextBox { Header = $"显示器 {m + 1} · 浅色壁纸", PlaceholderText = "留空则沿用显示器 1 的图片", IsReadOnly = true };
+            var darkBox = new TextBox { Header = $"显示器 {m + 1} · 深色壁纸", PlaceholderText = "留空则沿用显示器 1 的图片", IsReadOnly = true };
+            var lightButton = new Button { Content = "浏览...", VerticalAlignment = VerticalAlignment.Bottom };
+            var darkButton = new Button { Content = "浏览...", VerticalAlignment = VerticalAlignment.Bottom };
+
+            lightButton.Click += async (_, _) =>
+            {
+                var path = await PickImageFileAsync();
+                if (path != null)
+                {
+                    lightBox.Text = path;
+                    ApplyChanges();
+                }
+            };
+            darkButton.Click += async (_, _) =>
+            {
+                var path = await PickImageFileAsync();
+                if (path != null)
+                {
+                    darkBox.Text = path;
+                    ApplyChanges();
+                }
+            };
+
+            MonitorWallpaperPanel.Children.Add(WrapWithBrowse(lightBox, lightButton));
+            MonitorWallpaperPanel.Children.Add(WrapWithBrowse(darkBox, darkButton));
+            _extraLightBoxes.Add(lightBox);
+            _extraDarkBoxes.Add(darkBox);
+        }
+    }
+
+    private static Grid WrapWithBrowse(TextBox box, Button button)
+    {
+        var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        Grid.SetColumn(button, 2);
+        grid.Children.Add(box);
+        grid.Children.Add(button);
+        return grid;
+    }
+
+    // Collects the whole UI state and persists it — settings apply instantly,
+    // Win11-Settings style (no Save button).
+    private void ApplyChanges()
+    {
+        if (_loading)
+            return;
+
         var cfg = SettingsService.Instance.Snapshot;
 
-        ModeCombo.SelectedIndex = cfg.ScheduleMode switch
+        cfg.ScheduleMode = ModeCombo.SelectedIndex switch
         {
-            ScheduleMode.Off => 0,
-            ScheduleMode.FixedHours => 1,
-            ScheduleMode.SunsetToSunrise => 2,
-            ScheduleMode.FollowNightLight => 3,
-            _ => 0,
+            1 => ScheduleMode.FixedHours,
+            2 => ScheduleMode.SunsetToSunrise,
+            3 => ScheduleMode.FollowNightLight,
+            _ => ScheduleMode.Off,
         };
 
-        LightTimePicker.Time = TimeSpan.FromMinutes(((cfg.LightTime % 1440) + 1440) % 1440);
-        DarkTimePicker.Time = TimeSpan.FromMinutes(((cfg.DarkTime % 1440) + 1440) % 1440);
-        LatitudeBox.Text = cfg.Latitude;
-        LongitudeBox.Text = cfg.Longitude;
-        SunriseOffsetBox.Value = cfg.SunriseOffset;
-        SunsetOffsetBox.Value = cfg.SunsetOffset;
-        SystemToggle.IsOn = cfg.ChangeSystem;
-        AppsToggle.IsOn = cfg.ChangeApps;
-        WallpaperToggle.IsOn = cfg.ChangeWallpaper;
-        LightWallpaperBox.Text = cfg.LightWallpaper;
-        DarkWallpaperBox.Text = cfg.DarkWallpaper;
-        StartupToggle.IsOn = cfg.StartWithWindows;
-        _hotkey = cfg.Hotkey.Clone();
+        cfg.LightTime = (int)LightTimePicker.Time.TotalMinutes;
+        cfg.DarkTime = (int)DarkTimePicker.Time.TotalMinutes;
+        cfg.SunriseOffset = double.IsNaN(SunriseOffsetBox.Value) ? 0 : (int)SunriseOffsetBox.Value;
+        cfg.SunsetOffset = double.IsNaN(SunsetOffsetBox.Value) ? 0 : (int)SunsetOffsetBox.Value;
+        cfg.ChangeSystem = SystemToggle.IsOn;
+        cfg.ChangeApps = AppsToggle.IsOn;
+        cfg.ChangeWallpaper = WallpaperToggle.IsOn;
+        cfg.LightWallpaper = LightWallpaperBox.Text.Trim();
+        cfg.DarkWallpaper = DarkWallpaperBox.Text.Trim();
+        if (_extraLightBoxes.Count > 0) cfg.LightWallpaper2 = _extraLightBoxes[0].Text.Trim();
+        if (_extraLightBoxes.Count > 1) cfg.LightWallpaper3 = _extraLightBoxes[1].Text.Trim();
+        if (_extraDarkBoxes.Count > 0) cfg.DarkWallpaper2 = _extraDarkBoxes[0].Text.Trim();
+        if (_extraDarkBoxes.Count > 1) cfg.DarkWallpaper3 = _extraDarkBoxes[1].Text.Trim();
+        cfg.StartWithWindows = StartupToggle.IsOn;
+        cfg.ShowNotifications = NotificationsToggle.IsOn;
+        cfg.TrayDoubleClickAction = TrayDoubleClickCombo.SelectedIndex == 1 ? "settings" : "toggle";
+        cfg.Hotkey = _hotkey.Clone();
 
-        UpdateHotkeyText();
-        UpdateModePanelVisibility();
-        UpdateSunTimesDisplay();
-        WallpaperPanel.Visibility = WallpaperToggle.IsOn ? Visibility.Visible : Visibility.Collapsed;
+        // Lat/lon: persist only valid or intentionally-empty values; the "0.0"
+        // sentinel means "use system location".
+        var latText = LatitudeBox.Text.Trim();
+        var lonText = LongitudeBox.Text.Trim();
+        bool latEmpty = latText.Length == 0;
+        bool lonEmpty = lonText.Length == 0;
+
+        bool latOk = double.TryParse(latText, System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture, out double lat) && lat >= -90 && lat <= 90;
+        bool lonOk = double.TryParse(lonText, System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture, out double lon) && lon >= -180 && lon <= 180;
+
+        if (latEmpty && lonEmpty)
+        {
+            cfg.Latitude = "0.0";
+            cfg.Longitude = "0.0";
+        }
+        else if (!latEmpty && !lonEmpty && latOk && lonOk)
+        {
+            cfg.Latitude = latText;
+            cfg.Longitude = lonText;
+        }
+        // otherwise keep the previously stored values
+
+        SettingsService.Instance.Update(cfg);
+        StartupService.Apply(cfg.StartWithWindows);
     }
 
     private void OnModeChanged(object sender, SelectionChangedEventArgs e)
     {
         UpdateModePanelVisibility();
+        ApplyChanges();
     }
 
     private void UpdateModePanelVisibility()
@@ -155,6 +294,12 @@ public sealed partial class SettingsWindow : Window
         SunPanel.Visibility = idx == 2 ? Visibility.Visible : Visibility.Collapsed;
         NightLightHint.Visibility = idx == 3 ? Visibility.Visible : Visibility.Collapsed;
     }
+
+    private void OnScheduleChanged(object sender, TimePickerValueChangedEventArgs e) => ApplyChanges();
+
+    private void OnSettingToggled(object sender, RoutedEventArgs e) => ApplyChanges();
+
+    private void OnTrayActionChanged(object sender, SelectionChangedEventArgs e) => ApplyChanges();
 
     // Capture the next key combination as the global hotkey.
     private void OnHotkeyKeyDown(object sender, KeyRoutedEventArgs e)
@@ -171,6 +316,7 @@ public sealed partial class SettingsWindow : Window
         {
             _hotkey = new HotkeyConfig();
             UpdateHotkeyText();
+            ApplyChanges();
             return;
         }
 
@@ -191,6 +337,7 @@ public sealed partial class SettingsWindow : Window
 
         _hotkey = new HotkeyConfig { Win = win, Ctrl = ctrl, Alt = alt, Shift = shift, Key = (uint)e.Key };
         UpdateHotkeyText();
+        ApplyChanges();
     }
 
     private async void OnGetLocationClick(object sender, RoutedEventArgs e)
@@ -203,6 +350,7 @@ public sealed partial class SettingsWindow : Window
             {
                 LatitudeBox.Text = l.Latitude.ToString("F6", System.Globalization.CultureInfo.InvariantCulture);
                 LongitudeBox.Text = l.Longitude.ToString("F6", System.Globalization.CultureInfo.InvariantCulture);
+                ApplyChanges();
             }
             else
             {
@@ -224,7 +372,58 @@ public sealed partial class SettingsWindow : Window
 
     private void OnSunInputsChanged(object sender, TextChangedEventArgs e) => UpdateSunTimesDisplay();
 
-    private void OnSunOffsetChanged(NumberBox sender, NumberBoxValueChangedEventArgs args) => UpdateSunTimesDisplay();
+    private void OnSunOffsetChanged(NumberBox sender, NumberBoxValueChangedEventArgs args)
+    {
+        UpdateSunTimesDisplay();
+        ApplyChanges();
+    }
+
+    // Commit latitude/longitude on focus loss with validation feedback.
+    private async void OnLatLonCommitted(object sender, RoutedEventArgs e)
+    {
+        if (_loading)
+            return;
+
+        var latText = LatitudeBox.Text.Trim();
+        var lonText = LongitudeBox.Text.Trim();
+        bool latEmpty = latText.Length == 0;
+        bool lonEmpty = lonText.Length == 0;
+
+        if (latEmpty != lonEmpty)
+        {
+            var dlg = new ContentDialog
+            {
+                Title = "经纬度不完整",
+                Content = "纬度和经度需要同时填写，或同时留空以使用系统定位。",
+                CloseButtonText = "确定",
+                XamlRoot = Content.XamlRoot,
+            };
+            await dlg.ShowAsync();
+            return;
+        }
+
+        if (!latEmpty)
+        {
+            bool latOk = double.TryParse(latText, System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out double lat) && lat >= -90 && lat <= 90;
+            bool lonOk = double.TryParse(lonText, System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out double lon) && lon >= -180 && lon <= 180;
+            if (!latOk || !lonOk)
+            {
+                var dlg = new ContentDialog
+                {
+                    Title = "无效的经纬度",
+                    Content = "请检查纬度和经度：纬度应在 -90 到 90 之间，经度应在 -180 到 180 之间。",
+                    CloseButtonText = "确定",
+                    XamlRoot = Content.XamlRoot,
+                };
+                await dlg.ShowAsync();
+                return;
+            }
+        }
+
+        ApplyChanges();
+    }
 
     // Show today's computed sunrise/sunset (and the effective times after offsets).
     private void UpdateSunTimesDisplay()
@@ -237,7 +436,7 @@ public sealed partial class SettingsWindow : Window
 
         if (latText.Length == 0 || lonText.Length == 0)
         {
-            SunTimesText.Text = "经纬度留空：保存后将自动使用系统定位计算。";
+            SunTimesText.Text = "经纬度留空：将自动使用系统定位计算。";
             return;
         }
 
@@ -273,20 +472,27 @@ public sealed partial class SettingsWindow : Window
     private void OnWallpaperToggled(object sender, RoutedEventArgs e)
     {
         WallpaperPanel.Visibility = WallpaperToggle.IsOn ? Visibility.Visible : Visibility.Collapsed;
+        ApplyChanges();
     }
 
     private async void OnPickLightWallpaper(object sender, RoutedEventArgs e)
     {
         var path = await PickImageFileAsync();
         if (path != null)
+        {
             LightWallpaperBox.Text = path;
+            ApplyChanges();
+        }
     }
 
     private async void OnPickDarkWallpaper(object sender, RoutedEventArgs e)
     {
         var path = await PickImageFileAsync();
         if (path != null)
+        {
             DarkWallpaperBox.Text = path;
+            ApplyChanges();
+        }
     }
 
     // FileOpenPicker needs a window handle to show up in a WinUI 3 desktop app.
@@ -310,6 +516,7 @@ public sealed partial class SettingsWindow : Window
     {
         _hotkey = new HotkeyConfig();
         UpdateHotkeyText();
+        ApplyChanges();
     }
 
     private void UpdateHotkeyText()
@@ -342,84 +549,5 @@ public sealed partial class SettingsWindow : Window
         if (hk.Alt) parts.Add("Alt");
         if (hk.Shift) parts.Add("Shift");
         return string.Join(" + ", parts);
-    }
-
-    private async void OnSaveClick(object sender, RoutedEventArgs e)
-    {
-        var cfg = SettingsService.Instance.Snapshot;
-
-        cfg.ScheduleMode = ModeCombo.SelectedIndex switch
-        {
-            1 => ScheduleMode.FixedHours,
-            2 => ScheduleMode.SunsetToSunrise,
-            3 => ScheduleMode.FollowNightLight,
-            _ => ScheduleMode.Off,
-        };
-
-        cfg.LightTime = (int)LightTimePicker.Time.TotalMinutes;
-        cfg.DarkTime = (int)DarkTimePicker.Time.TotalMinutes;
-        cfg.SunriseOffset = double.IsNaN(SunriseOffsetBox.Value) ? 0 : (int)SunriseOffsetBox.Value;
-        cfg.SunsetOffset = double.IsNaN(SunsetOffsetBox.Value) ? 0 : (int)SunsetOffsetBox.Value;
-        cfg.ChangeSystem = SystemToggle.IsOn;
-        cfg.ChangeApps = AppsToggle.IsOn;
-        cfg.ChangeWallpaper = WallpaperToggle.IsOn;
-        cfg.LightWallpaper = LightWallpaperBox.Text.Trim();
-        cfg.DarkWallpaper = DarkWallpaperBox.Text.Trim();
-        cfg.StartWithWindows = StartupToggle.IsOn;
-        cfg.Hotkey = _hotkey;
-
-        var latText = LatitudeBox.Text.Trim();
-        var lonText = LongitudeBox.Text.Trim();
-
-        if (cfg.ScheduleMode == ScheduleMode.SunsetToSunrise)
-        {
-            // Empty fields are allowed — the scheduler will fall back to the system location
-            bool latEmpty = latText.Length == 0;
-            bool lonEmpty = lonText.Length == 0;
-            if (latEmpty != lonEmpty)
-            {
-                var dlg = new ContentDialog
-                {
-                    Title = "经纬度不完整",
-                    Content = "纬度和经度需要同时填写，或同时留空以使用系统定位。",
-                    CloseButtonText = "确定",
-                    XamlRoot = Content.XamlRoot,
-                };
-                await dlg.ShowAsync();
-                return;
-            }
-
-            if (!latEmpty)
-            {
-                bool latOk = double.TryParse(latText, out double lat) && lat >= -90 && lat <= 90;
-                bool lonOk = double.TryParse(lonText, out double lon) && lon >= -180 && lon <= 180;
-                if (!latOk || !lonOk)
-                {
-                    var dlg = new ContentDialog
-                    {
-                        Title = "无效的经纬度",
-                        Content = "请检查纬度和经度：纬度应在 -90 到 90 之间，经度应在 -180 到 180 之间。",
-                        CloseButtonText = "确定",
-                        XamlRoot = Content.XamlRoot,
-                    };
-                    await dlg.ShowAsync();
-                    return;
-                }
-            }
-            else
-            {
-                // Persist the "unset" sentinel so the scheduler knows to use system location
-                latText = "0.0";
-                lonText = "0.0";
-            }
-        }
-
-        cfg.Latitude = latText;
-        cfg.Longitude = lonText;
-
-        SettingsService.Instance.Update(cfg);
-        StartupService.Apply(cfg.StartWithWindows);
-        Logger.Info("[SettingsWindow] Settings saved.");
-        Close();
     }
 }

@@ -50,19 +50,20 @@ internal sealed class HotkeyService : IDisposable
     }
 
     // Re-register the hotkey from a new config.
-    public void Apply(HotkeyConfig hotkey)
+    // Returns false when the registration failed (e.g. taken by another app).
+    public bool Apply(HotkeyConfig hotkey)
     {
         _current = hotkey.Clone();
 
         if (_hwnd == IntPtr.Zero)
-            return;
+            return true;
 
         NativeMethods.UnregisterHotKey(_hwnd, HotkeyId);
 
         if (hotkey.Key == 0)
         {
             Logger.Info("[Hotkey] Hotkey disabled.");
-            return;
+            return true;
         }
 
         uint mods = NativeMethods.MOD_NOREPEAT;
@@ -71,10 +72,12 @@ internal sealed class HotkeyService : IDisposable
         if (hotkey.Alt) mods |= NativeMethods.MOD_ALT;
         if (hotkey.Shift) mods |= NativeMethods.MOD_SHIFT;
 
-        if (!NativeMethods.RegisterHotKey(_hwnd, HotkeyId, mods, hotkey.Key))
-            Logger.Warn("[Hotkey] RegisterHotKey failed (already taken by another app?).");
-        else
+        bool ok = NativeMethods.RegisterHotKey(_hwnd, HotkeyId, mods, hotkey.Key);
+        if (ok)
             Logger.Info("[Hotkey] Hotkey registered.");
+        else
+            Logger.Warn("[Hotkey] RegisterHotKey failed (already taken by another app?).");
+        return ok;
     }
 
     private static IntPtr WndProcRouter(IntPtr hWnd, uint msg, UIntPtr wParam, IntPtr lParam)
