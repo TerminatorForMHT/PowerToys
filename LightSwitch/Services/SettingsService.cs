@@ -84,6 +84,21 @@ public sealed class LightSwitchConfig
         clone.ExtraDarkWallpapers = new List<string>(ExtraDarkWallpapers);
         return clone;
     }
+
+    // Field-wise equality used for dirty tracking (Apply button enabled state).
+    public bool EqualsTo(LightSwitchConfig o) =>
+        ScheduleMode == o.ScheduleMode &&
+        Latitude == o.Latitude && Longitude == o.Longitude &&
+        LightTime == o.LightTime && DarkTime == o.DarkTime &&
+        SunriseOffset == o.SunriseOffset && SunsetOffset == o.SunsetOffset &&
+        ChangeSystem == o.ChangeSystem && ChangeApps == o.ChangeApps &&
+        StartWithWindows == o.StartWithWindows &&
+        ChangeWallpaper == o.ChangeWallpaper && PerMonitorWallpaper == o.PerMonitorWallpaper &&
+        LightWallpaper == o.LightWallpaper && DarkWallpaper == o.DarkWallpaper &&
+        ShowNotifications == o.ShowNotifications && TrayDoubleClickAction == o.TrayDoubleClickAction &&
+        Hotkey.EqualsTo(o.Hotkey) &&
+        ExtraLightWallpapers.SequenceEqual(o.ExtraLightWallpapers) &&
+        ExtraDarkWallpapers.SequenceEqual(o.ExtraDarkWallpapers);
 }
 
 // Owns settings.json under %LocalAppData%\LightSwitch\.

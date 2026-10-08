@@ -159,6 +159,7 @@ public sealed partial class SettingsWindow : Window
         UpdateModePanelVisibility();
         UpdateSunTimesDisplay();
         UpdateWallpaperUi();
+        UpdateApplyButtonState();
     }
 
     // WM_DISPLAYCHANGE: monitors were added/removed while the window is open —
@@ -197,13 +198,19 @@ public sealed partial class SettingsWindow : Window
             {
                 var path = await PickImageFileAsync();
                 if (path != null)
+                {
                     lightBox.Text = path;
+                    UpdateApplyButtonState();
+                }
             };
             darkButton.Click += async (_, _) =>
             {
                 var path = await PickImageFileAsync();
                 if (path != null)
+                {
                     darkBox.Text = path;
+                    UpdateApplyButtonState();
+                }
             };
 
             MonitorWallpaperPanel.Children.Add(WrapWithBrowse(lightBox, lightButton));
@@ -248,8 +255,8 @@ public sealed partial class SettingsWindow : Window
         return grid;
     }
 
-    // Collects the whole UI state and persists it — invoked by the Apply button.
-    private void ApplyChanges()
+    // Collects the whole UI state into a config (not persisted).
+    private LightSwitchConfig CollectUiState()
     {
         var cfg = SettingsService.Instance.Snapshot;
 
@@ -302,8 +309,7 @@ public sealed partial class SettingsWindow : Window
         }
         // otherwise keep the previously stored values
 
-        SettingsService.Instance.Update(cfg);
-        StartupService.Apply(cfg.StartWithWindows);
+        return cfg;
     }
 
     // Apply button: validate, then persist the whole UI state.
@@ -350,9 +356,39 @@ public sealed partial class SettingsWindow : Window
         ApplyChanges();
     }
 
+    // Persists the whole UI state (Apply button).
+    private void ApplyChanges()
+    {
+        var cfg = CollectUiState();
+        SettingsService.Instance.Update(cfg);
+        StartupService.Apply(cfg.StartWithWindows);
+        UpdateApplyButtonState();
+    }
+
+    // True when the UI differs from the persisted config (drives Apply button).
+    private bool IsDirty()
+    {
+        var ui = CollectUiState();
+
+        // Lat/lon: compare raw text (sentinel-normalized) so partially typed or
+        // invalid input still counts as a change.
+        var latText = LatitudeBox.Text.Trim();
+        var lonText = LongitudeBox.Text.Trim();
+        ui.Latitude = latText.Length == 0 ? "0.0" : latText;
+        ui.Longitude = lonText.Length == 0 ? "0.0" : lonText;
+
+        return !ui.EqualsTo(SettingsService.Instance.Snapshot);
+    }
+
+    private void UpdateApplyButtonState()
+    {
+        ApplyButton.IsEnabled = IsDirty();
+    }
+
     private void OnModeChanged(object sender, SelectionChangedEventArgs e)
     {
         UpdateModePanelVisibility();
+        UpdateApplyButtonState();
     }
 
     private void UpdateModePanelVisibility()
@@ -361,6 +397,24 @@ public sealed partial class SettingsWindow : Window
         FixedHoursPanel.Visibility = idx == 1 ? Visibility.Visible : Visibility.Collapsed;
         SunPanel.Visibility = idx == 2 ? Visibility.Visible : Visibility.Collapsed;
         NightLightHint.Visibility = idx == 3 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void OnScheduleChanged(object sender, TimePickerValueChangedEventArgs e) => UpdateApplyButtonState();
+
+    private void OnSettingToggled(object sender, RoutedEventArgs e) => UpdateApplyButtonState();
+
+    private void OnTrayActionChanged(object sender, SelectionChangedEventArgs e) => UpdateApplyButtonState();
+
+    private void OnWallpaperToggled(object sender, RoutedEventArgs e)
+    {
+        UpdateWallpaperUi();
+        UpdateApplyButtonState();
+    }
+
+    private void OnPerMonitorToggled(object sender, RoutedEventArgs e)
+    {
+        UpdateWallpaperUi();
+        UpdateApplyButtonState();
     }
 
     // Capture the next key combination as the global hotkey.
@@ -378,6 +432,7 @@ public sealed partial class SettingsWindow : Window
         {
             _hotkey = new HotkeyConfig();
             UpdateHotkeyText();
+            UpdateApplyButtonState();
             return;
         }
 
@@ -398,6 +453,7 @@ public sealed partial class SettingsWindow : Window
 
         _hotkey = new HotkeyConfig { Win = win, Ctrl = ctrl, Alt = alt, Shift = shift, Key = (uint)e.Key };
         UpdateHotkeyText();
+        UpdateApplyButtonState();
     }
 
     private async void OnGetLocationClick(object sender, RoutedEventArgs e)
@@ -410,6 +466,7 @@ public sealed partial class SettingsWindow : Window
             {
                 LatitudeBox.Text = l.Latitude.ToString("F6", System.Globalization.CultureInfo.InvariantCulture);
                 LongitudeBox.Text = l.Longitude.ToString("F6", System.Globalization.CultureInfo.InvariantCulture);
+                UpdateApplyButtonState();
             }
             else
             {
@@ -429,11 +486,16 @@ public sealed partial class SettingsWindow : Window
         }
     }
 
-    private void OnSunInputsChanged(object sender, TextChangedEventArgs e) => UpdateSunTimesDisplay();
+    private void OnSunInputsChanged(object sender, TextChangedEventArgs e)
+    {
+        UpdateSunTimesDisplay();
+        UpdateApplyButtonState();
+    }
 
     private void OnSunOffsetChanged(NumberBox sender, NumberBoxValueChangedEventArgs args)
     {
         UpdateSunTimesDisplay();
+        UpdateApplyButtonState();
     }
 
     // Show today's computed sunrise/sunset (and the effective times after offsets).
@@ -484,14 +546,20 @@ public sealed partial class SettingsWindow : Window
     {
         var path = await PickImageFileAsync();
         if (path != null)
+        {
             LightWallpaperBox.Text = path;
+            UpdateApplyButtonState();
+        }
     }
 
     private async void OnPickDarkWallpaper(object sender, RoutedEventArgs e)
     {
         var path = await PickImageFileAsync();
         if (path != null)
+        {
             DarkWallpaperBox.Text = path;
+            UpdateApplyButtonState();
+        }
     }
 
     // FileOpenPicker needs a window handle to show up in a WinUI 3 desktop app.
@@ -515,6 +583,7 @@ public sealed partial class SettingsWindow : Window
     {
         _hotkey = new HotkeyConfig();
         UpdateHotkeyText();
+        UpdateApplyButtonState();
     }
 
     private void UpdateHotkeyText()
