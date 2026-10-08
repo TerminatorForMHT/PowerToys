@@ -42,11 +42,12 @@ public sealed partial class SettingsWindow : Window
         // peek out as a white line across the top when the window is maximized.
         AppWindow.TitleBar.ExtendsContentIntoTitleBar = true;
 
-        // Scale the window by the display's DPI (e.g. 125% → 650×1050 on a 2K screen)
+        // Scale the window by the display's DPI (e.g. 125% → 850×900 on a 2K screen).
+        // Sized for the fixed 200px nav pane + paged content, like Auto Dark Mode.
         _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
         var dpi = GetDpiForWindow(_hwnd);
         double scale = dpi / 96.0;
-        AppWindow.Resize(new SizeInt32((int)(520 * scale), (int)(880 * scale)));
+        AppWindow.Resize(new SizeInt32((int)(680 * scale), (int)(720 * scale)));
 
         var titleBar = AppWindow.TitleBar;
         titleBar.ButtonBackgroundColor = Microsoft.UI.Colors.Transparent;

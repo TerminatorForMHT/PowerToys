@@ -21,11 +21,12 @@
             </StackPanel>
         </Grid>
 
-        <!-- Win11 Settings structure: left navigation pane + capped content column -->
+        <!-- Win11 Settings / Auto Dark Mode structure: fixed left navigation pane
+             (never collapses) + capped content column; footer item at pane bottom -->
         <NavigationView Grid.Row="1" x:Name="NavView"
-                        PaneDisplayMode="Auto" OpenPaneLength="200"
+                        PaneDisplayMode="Left" OpenPaneLength="200"
                         IsBackButtonVisible="Collapsed" IsSettingsVisible="False"
-                        IsPaneToggleButtonVisible="True"
+                        IsPaneToggleButtonVisible="False"
                         IsTitleBarAutoPaddingEnabled="False"
                         SelectionChanged="OnNavSelectionChanged">
             <NavigationView.MenuItems>
@@ -44,12 +45,14 @@
                         <FontIcon Glyph="&#xE8B9;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
+            </NavigationView.MenuItems>
+            <NavigationView.FooterMenuItems>
                 <NavigationViewItem Content="常规" Tag="general">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE713;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-            </NavigationView.MenuItems>
+            </NavigationView.FooterMenuItems>
 
             <NavigationView.Content>
                 <Grid>
