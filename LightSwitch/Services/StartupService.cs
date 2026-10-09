@@ -1,16 +1,83 @@
 using Microsoft.Win32;
+using Windows.ApplicationModel;
 
 namespace LightSwitch.Services;
 
-// Manages the "Run at Windows startup" registry entry under
-// HKCU\Software\Microsoft\Windows\CurrentVersion\Run (per-user, no admin needed).
+// Manages "run at Windows startup".
+// Packaged (MSIX) builds MUST use the windows.startupTask manifest extension:
+// direct HKCU\...\Run writes from a packaged app land in its private registry
+// hive and never actually launch anything at login. Unpackaged runs fall back
+// to the classic Run key.
 public static class StartupService
 {
     private const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
     private const string AppName = "LightSwitch";
+    private const string StartupTaskId = "LightSwitchStartup";
 
-    // Registers the app to launch at login, or removes the entry when disabled.
-    public static void Apply(bool enable)
+    // True when running with an identity package (installed MSIX).
+    private static bool IsPackaged()
+    {
+        try
+        {
+            _ = Package.Current;
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    // Enables or disables login autostart according to the setting.
+    public static async Task ApplyAsync(bool enable)
+    {
+        if (IsPackaged())
+            await ApplyPackagedAsync(enable);
+        else
+            ApplyUnpackaged(enable);
+    }
+
+    private static async Task ApplyPackagedAsync(bool enable)
+    {
+        try
+        {
+            var task = await StartupTask.GetAsync(StartupTaskId);
+
+            if (enable)
+            {
+                switch (task.State)
+                {
+                    case StartupTaskState.Enabled:
+                    case StartupTaskState.EnabledByPolicy:
+                        Logger.Info("[Startup] StartupTask already enabled.");
+                        break;
+                    case StartupTaskState.DisabledByUser:
+                        // The user turned it off in Task Manager; apps may not
+                        // re-enable that programmatically.
+                        Logger.Warn("[Startup] StartupTask disabled by user in Task Manager; not re-enabling.");
+                        break;
+                    default: // Disabled / DisabledByPolicy
+                        var result = await task.RequestEnableAsync();
+                        Logger.Info($"[Startup] StartupTask enable requested, result={result}.");
+                        break;
+                }
+            }
+            else
+            {
+                if (task.State is StartupTaskState.Enabled or StartupTaskState.EnabledByPolicy)
+                {
+                    task.Disable();
+                    Logger.Info("[Startup] StartupTask disabled.");
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            Logger.Error("[Startup] StartupTask exception: " + e.Message);
+        }
+    }
+
+    private static void ApplyUnpackaged(bool enable)
     {
         try
         {
@@ -23,8 +90,6 @@ public static class StartupService
 
             if (enable)
             {
-                // For a packaged (MSIX) app the exe lives under Program Files\WindowsApps.
-                // Environment.ProcessPath gives the full path to the running exe.
                 var exePath = Environment.ProcessPath;
                 if (string.IsNullOrEmpty(exePath))
                 {
@@ -43,20 +108,6 @@ public static class StartupService
         catch (Exception e)
         {
             Logger.Error("[Startup] Exception: " + e.Message);
-        }
-    }
-
-    // Checks whether the app is currently registered to run at login.
-    public static bool IsRegistered()
-    {
-        try
-        {
-            using var key = Registry.CurrentUser.OpenSubKey(RunKeyPath);
-            return key?.GetValue(AppName) != null;
-        }
-        catch
-        {
-            return false;
         }
     }
 }

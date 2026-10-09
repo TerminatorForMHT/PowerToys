@@ -401,7 +401,7 @@ public sealed partial class SettingsUi : Window
     {
         var cfg = CollectUiState();
         SettingsService.Instance.Update(cfg);
-        StartupService.Apply(cfg.StartWithWindows);
+        _ = StartupService.ApplyAsync(cfg.StartWithWindows);
         UpdateApplyButtonState();
     }
 

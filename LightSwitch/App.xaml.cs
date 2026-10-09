@@ -50,6 +50,11 @@ public partial class App : Application
         // Ensure settings.json exists so the file watcher has something to watch.
         SettingsService.Instance.Save();
 
+        // Align the login-startup state with the saved setting. Also self-heals
+        // after a package upgrade where the old startup entry pointed at a
+        // removed versioned exe path.
+        _ = StartupService.ApplyAsync(SettingsService.Instance.Snapshot.StartWithWindows);
+
         _scheduler = new SchedulerService();
         _scheduler.Start();
 
