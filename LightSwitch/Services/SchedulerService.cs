@@ -162,6 +162,27 @@ internal sealed class SchedulerService : IDisposable
         return nNow >= nLight || nNow < nDark;
     }
 
+    // Effective light/dark boundaries (minutes since midnight) for the current
+    // mode. SunsetToSunrise always recomputes from the coordinates — the
+    // persisted LightTime/DarkTime are only a display cache for the settings UI
+    // and can go stale (the UI once rewrote them to 0, which made ShouldBeLight
+    // report "light all day" after sunset). Never schedule from them.
+    private static void GetEffectiveBoundaries(LightSwitchConfig snap, out int light, out int dark)
+    {
+        if (snap.ScheduleMode == ScheduleMode.SunsetToSunrise && CoordinatesAreValid(snap.Latitude, snap.Longitude))
+        {
+            var times = SunCalculator.Calculate(
+                double.Parse(snap.Latitude), double.Parse(snap.Longitude),
+                DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day);
+            light = times.SunriseHour * 60 + times.SunriseMinute + snap.SunriseOffset;
+            dark = times.SunsetHour * 60 + times.SunsetMinute + snap.SunsetOffset;
+            return;
+        }
+
+        light = snap.LightTime;
+        dark = snap.DarkTime;
+    }
+
     private static bool CoordinatesAreValid(string lat, string lon)
     {
         try
@@ -277,14 +298,7 @@ internal sealed class SchedulerService : IDisposable
                 return;
 
             int now = GetNowMinutes();
-            int effectiveLight = snap.LightTime;
-            int effectiveDark = snap.DarkTime;
-
-            if (snap.ScheduleMode == ScheduleMode.SunsetToSunrise)
-            {
-                effectiveLight = (snap.LightTime + snap.SunriseOffset) % 1440;
-                effectiveDark = (snap.DarkTime + snap.SunsetOffset) % 1440;
-            }
+            GetEffectiveBoundaries(snap, out int effectiveLight, out int effectiveDark);
 
             bool shouldBeLight = snap.ScheduleMode == ScheduleMode.FollowNightLight
                 ? !NightLightService.IsNightLightEnabled()
@@ -334,8 +348,6 @@ internal sealed class SchedulerService : IDisposable
                 var times = SunCalculator.Calculate(lat, lon, dt.Year, dt.Month, dt.Day);
                 int riseMinutes = times.SunriseHour * 60 + times.SunriseMinute;
                 int setMinutes = times.SunsetHour * 60 + times.SunsetMinute;
-                _effectiveLightMinutes = riseMinutes + snap.SunriseOffset;
-                _effectiveDarkMinutes = setMinutes + snap.SunsetOffset;
                 _lastEvaluatedDay = today;
                 Logger.Info($"[Scheduler] Updated sun times from coordinates: sunrise {times.SunriseHour:D2}:{times.SunriseMinute:D2}, sunset {times.SunsetHour:D2}:{times.SunsetMinute:D2}.");
 
@@ -350,11 +362,10 @@ internal sealed class SchedulerService : IDisposable
                     SettingsService.Instance.ReplaceConfig(cfg);
                 }
             }
-            else
-            {
-                _effectiveLightMinutes = snap.LightTime + snap.SunriseOffset;
-                _effectiveDarkMinutes = snap.DarkTime + snap.SunsetOffset;
-            }
+
+            // Always derive the boundaries from the coordinates — the persisted
+            // LightTime/DarkTime are only a display cache and may be stale.
+            GetEffectiveBoundaries(snap, out _effectiveLightMinutes, out _effectiveDarkMinutes);
         }
         else if (snap.ScheduleMode == ScheduleMode.SunsetToSunrise)
         {

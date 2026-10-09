@@ -301,8 +301,15 @@ public sealed partial class SettingsUi : Window
             _ => ScheduleMode.Off,
         };
 
-        cfg.LightTime = (int)LightTimePicker.Time.TotalMinutes;
-        cfg.DarkTime = (int)DarkTimePicker.Time.TotalMinutes;
+        // In SunsetToSunrise mode the fixed-hours pickers are hidden; LightTime
+        // and DarkTime hold the scheduler's persisted sunrise/sunset cache.
+        // Keep the snapshot values — writing the hidden pickers' 00:00 back
+        // zeroed the cache and made the scheduler treat the whole day as light.
+        if (cfg.ScheduleMode != ScheduleMode.SunsetToSunrise)
+        {
+            cfg.LightTime = (int)LightTimePicker.Time.TotalMinutes;
+            cfg.DarkTime = (int)DarkTimePicker.Time.TotalMinutes;
+        }
         cfg.SunriseOffset = double.IsNaN(SunriseOffsetBox.Value) ? 0 : (int)SunriseOffsetBox.Value;
         cfg.SunsetOffset = double.IsNaN(SunsetOffsetBox.Value) ? 0 : (int)SunsetOffsetBox.Value;
         cfg.ChangeSystem = SystemToggle.IsOn;
