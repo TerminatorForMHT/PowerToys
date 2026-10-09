@@ -122,13 +122,46 @@ public static class WallpaperService
     {
         try
         {
-            var wallpaper = (IDesktopWallpaper)new DesktopWallpaperClass();
-            return checked((int)wallpaper.GetMonitorDevicePathCount());
+            return GetActiveMonitorIds().Count;
         }
         catch
         {
             return 1;
         }
+    }
+
+    // Device paths of the monitors that are part of the active desktop topology.
+    // GetMonitorDevicePathCount also lists stale slots: an unplugged monitor
+    // shows up as an empty path, and virtual display adapters (e.g. the MS_0001
+    // Microsoft virtual display residue) return a path but GetMonitorRECT fails
+    // because they are not showing the desktop. Only monitors whose RECT query
+    // succeeds are real — filter both out so the settings UI and per-monitor
+    // wallpaper apply only see actual displays.
+    private static List<string> GetActiveMonitorIds()
+    {
+        var wallpaper = (IDesktopWallpaper)new DesktopWallpaperClass();
+        uint count = wallpaper.GetMonitorDevicePathCount();
+        var ids = new List<string>();
+
+        for (uint i = 0; i < count; i++)
+        {
+            string id = wallpaper.GetMonitorDevicePathAt(i);
+            if (string.IsNullOrEmpty(id))
+                continue;
+
+            try
+            {
+                wallpaper.GetMonitorRECT(id, out _);
+            }
+            catch
+            {
+                continue; // not part of the active desktop topology
+            }
+
+            ids.Add(id);
+        }
+
+        return ids;
     }
 
     // Sets the desktop wallpaper. style: 0=centered, 2=stretched, 6=fit, 10=fill (Windows default).
@@ -206,15 +239,15 @@ public static class WallpaperService
         try
         {
             var wallpaper = (IDesktopWallpaper)new DesktopWallpaperClass();
-            uint count = wallpaper.GetMonitorDevicePathCount();
+            var monitorIds = GetActiveMonitorIds();
             bool anyChanged = false;
 
-            for (uint i = 0; i < count; i++)
+            for (int i = 0; i < monitorIds.Count; i++)
             {
                 string target = primary;
                 if (cfg.PerMonitorWallpaper && i > 0)
                 {
-                    int idx = (int)i - 1;
+                    int idx = i - 1;
                     if (idx < extras.Count && !string.IsNullOrWhiteSpace(extras[idx]))
                         target = extras[idx];
                 }
@@ -222,7 +255,7 @@ public static class WallpaperService
                 if (!File.Exists(target))
                     continue;
 
-                string monitorId = wallpaper.GetMonitorDevicePathAt(i);
+                string monitorId = monitorIds[i];
                 string current = SafeGetWallpaper(wallpaper, monitorId);
                 if (!string.Equals(current, target, StringComparison.OrdinalIgnoreCase))
                 {
@@ -232,7 +265,7 @@ public static class WallpaperService
             }
 
             if (anyChanged)
-                Logger.Info($"[Wallpaper] Applied {(isLight ? "light" : "dark")} wallpaper to {count} monitor(s).");
+                Logger.Info($"[Wallpaper] Applied {(isLight ? "light" : "dark")} wallpaper to {monitorIds.Count} monitor(s).");
         }
         catch (Exception e)
         {
