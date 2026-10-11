@@ -95,13 +95,17 @@ public sealed partial class SettingsUi : Window
 
         ApplySystemTheme();
         LoadFromSettings();
-        AttachSectionAnimations();
 
-        // Defer the initial nav selection to Loaded: sections start collapsed in
-        // markup and the selection change makes the first one visible, so the
-        // slide-up animation also plays on first open. Doing it in the ctor would
-        // run the animation before the window is ever shown.
-        RootGrid.Loaded += (_, _) => NavView.SelectedItem = NavView.MenuItems[0];
+        // Defer both the animations and the initial nav selection to Loaded:
+        // composition APIs (GetElementVisual) crash with an access violation when
+        // called on elements that are not yet connected to the window, and
+        // sections start collapsed in markup so the first selection change makes
+        // the first one visible — which also plays the slide-up on first open.
+        RootGrid.Loaded += (_, _) =>
+        {
+            AttachSectionAnimations();
+            NavView.SelectedItem = NavView.MenuItems[0];
+        };
     }
 
     // P/Invoke: DPI of the window's display (needed to scale the AppWindow size
@@ -114,6 +118,10 @@ public sealed partial class SettingsUi : Window
     // appearance — and never re-triggers on Collapsed→Visible switches, so use
     // composition implicit show animations instead: they replay on every
     // visibility change, like the Win11 Settings page switches.
+    // The slide animates the standalone Translation property (Offset + additive
+    // Translation = render position): Translation is layout-independent, so the
+    // end state (0,0,0) is always correct even though the four sections share
+    // one StackPanel and each other's visibility shifts their layout offsets.
     private void AttachSectionAnimations()
     {
         FrameworkElement[] sections = [SectionMode, SectionScope, SectionWallpaper, SectionGeneral];
@@ -126,13 +134,12 @@ public sealed partial class SettingsUi : Window
                 new System.Numerics.Vector2(0.1f, 0.9f),
                 new System.Numerics.Vector2(0.2f, 1f));
 
-            // Expression keyframes reference the layout-set Offset at animation
-            // start (this.StartingValue), so the slide stays correct regardless of
-            // which other sections are collapsed (siblings share one StackPanel).
+            ElementCompositionPreview.SetIsTranslationEnabled(section, true);
+
             var slide = compositor.CreateVector3KeyFrameAnimation();
             slide.Duration = TimeSpan.FromMilliseconds(280);
-            slide.InsertExpressionKeyFrame(0f, "Vector3(this.StartingValue.X, this.StartingValue.Y + 56f, this.StartingValue.Z)");
-            slide.InsertExpressionKeyFrame(1f, "this.StartingValue", easing);
+            slide.InsertKeyFrame(0f, new System.Numerics.Vector3(0f, 56f, 0f));
+            slide.InsertKeyFrame(1f, new System.Numerics.Vector3(0f, 0f, 0f), easing);
 
             var fade = compositor.CreateScalarKeyFrameAnimation();
             fade.Duration = TimeSpan.FromMilliseconds(280);
