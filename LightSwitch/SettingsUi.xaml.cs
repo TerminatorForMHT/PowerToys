@@ -1,9 +1,11 @@
 using LightSwitch.Native;
 using LightSwitch.Services;
+using Microsoft.UI.Composition;
 using Microsoft.UI.Composition.SystemBackdrops;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Windows.Graphics;
@@ -93,15 +95,56 @@ public sealed partial class SettingsUi : Window
 
         ApplySystemTheme();
         LoadFromSettings();
+        AttachSectionAnimations();
 
-        // Select the first nav item (fires OnNavSelectionChanged once all controls exist).
-        NavView.SelectedItem = NavView.MenuItems[0];
+        // Defer the initial nav selection to Loaded: sections start collapsed in
+        // markup and the selection change makes the first one visible, so the
+        // slide-up animation also plays on first open. Doing it in the ctor would
+        // run the animation before the window is ever shown.
+        RootGrid.Loaded += (_, _) => NavView.SelectedItem = NavView.MenuItems[0];
     }
 
     // P/Invoke: DPI of the window's display (needed to scale the AppWindow size
     // correctly — AppWindow.Resize works in physical pixels, not DIPs).
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     private static extern uint GetDpiForWindow(System.IntPtr hwnd);
+
+    // Bottom-up slide (56px + fade-in) when a nav section becomes visible.
+    // EntranceThemeTransition in markup only plays once — on the element's first
+    // appearance — and never re-triggers on Collapsed→Visible switches, so use
+    // composition implicit show animations instead: they replay on every
+    // visibility change, like the Win11 Settings page switches.
+    private void AttachSectionAnimations()
+    {
+        FrameworkElement[] sections = [SectionMode, SectionScope, SectionWallpaper, SectionGeneral];
+
+        foreach (var section in sections)
+        {
+            var visual = ElementCompositionPreview.GetElementVisual(section);
+            var compositor = visual.Compositor;
+            var easing = compositor.CreateCubicBezierEasingFunction(
+                new System.Numerics.Vector2(0.1f, 0.9f),
+                new System.Numerics.Vector2(0.2f, 1f));
+
+            // Expression keyframes reference the layout-set Offset at animation
+            // start (this.StartingValue), so the slide stays correct regardless of
+            // which other sections are collapsed (siblings share one StackPanel).
+            var slide = compositor.CreateVector3KeyFrameAnimation();
+            slide.Duration = TimeSpan.FromMilliseconds(280);
+            slide.InsertExpressionKeyFrame(0f, "Vector3(this.StartingValue.X, this.StartingValue.Y + 56f, this.StartingValue.Z)");
+            slide.InsertExpressionKeyFrame(1f, "this.StartingValue", easing);
+
+            var fade = compositor.CreateScalarKeyFrameAnimation();
+            fade.Duration = TimeSpan.FromMilliseconds(280);
+            fade.InsertKeyFrame(0f, 0f);
+            fade.InsertKeyFrame(1f, 1f, easing);
+
+            var group = compositor.CreateAnimationGroup();
+            group.Add(slide);
+            group.Add(fade);
+            ElementCompositionPreview.SetImplicitShowAnimation(section, group);
+        }
+    }
 
     private void OnWindowClosed(object sender, WindowEventArgs args)
     {
