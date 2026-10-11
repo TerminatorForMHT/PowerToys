@@ -103,7 +103,16 @@ public sealed partial class SettingsUi : Window
         // the first one visible — which also plays the slide-up on first open.
         RootGrid.Loaded += (_, _) =>
         {
-            AttachSectionAnimations();
+            try
+            {
+                AttachSectionAnimations();
+            }
+            catch (Exception ex)
+            {
+                // Stowed exceptions (0xc000027b) kill the process without reaching
+                // UnhandledException — at least log failures from our own calls.
+                Logger.Error("[SettingsUi] AttachSectionAnimations failed: " + ex);
+            }
             NavView.SelectedItem = NavView.MenuItems[0];
         };
     }
@@ -122,33 +131,40 @@ public sealed partial class SettingsUi : Window
     // Translation = render position): Translation is layout-independent, so the
     // end state (0,0,0) is always correct even though the four sections share
     // one StackPanel and each other's visibility shifts their layout offsets.
+    // Every animation MUST set Target explicitly: implicit show groups trigger
+    // on visibility changes and a target-less animation throws a stowed
+    // exception (0xc000027b) that failfasts the process.
+    private CompositionAnimationGroup? _sectionShowGroup;
+
     private void AttachSectionAnimations()
     {
         FrameworkElement[] sections = [SectionMode, SectionScope, SectionWallpaper, SectionGeneral];
 
+        var compositor = ElementCompositionPreview.GetElementVisual(sections[0]).Compositor;
+        var easing = compositor.CreateCubicBezierEasingFunction(
+            new System.Numerics.Vector2(0.1f, 0.9f),
+            new System.Numerics.Vector2(0.2f, 1f));
+
+        var slide = compositor.CreateVector3KeyFrameAnimation();
+        slide.Target = "Translation";
+        slide.Duration = TimeSpan.FromMilliseconds(280);
+        slide.InsertKeyFrame(0f, new System.Numerics.Vector3(0f, 56f, 0f));
+        slide.InsertKeyFrame(1f, new System.Numerics.Vector3(0f, 0f, 0f), easing);
+
+        var fade = compositor.CreateScalarKeyFrameAnimation();
+        fade.Target = "Opacity";
+        fade.Duration = TimeSpan.FromMilliseconds(280);
+        fade.InsertKeyFrame(0f, 0f);
+        fade.InsertKeyFrame(1f, 1f, easing);
+
+        var group = compositor.CreateAnimationGroup();
+        group.Add(slide);
+        group.Add(fade);
+        _sectionShowGroup = group; // keep a managed reference so GC can't drop it
+
         foreach (var section in sections)
         {
-            var visual = ElementCompositionPreview.GetElementVisual(section);
-            var compositor = visual.Compositor;
-            var easing = compositor.CreateCubicBezierEasingFunction(
-                new System.Numerics.Vector2(0.1f, 0.9f),
-                new System.Numerics.Vector2(0.2f, 1f));
-
             ElementCompositionPreview.SetIsTranslationEnabled(section, true);
-
-            var slide = compositor.CreateVector3KeyFrameAnimation();
-            slide.Duration = TimeSpan.FromMilliseconds(280);
-            slide.InsertKeyFrame(0f, new System.Numerics.Vector3(0f, 56f, 0f));
-            slide.InsertKeyFrame(1f, new System.Numerics.Vector3(0f, 0f, 0f), easing);
-
-            var fade = compositor.CreateScalarKeyFrameAnimation();
-            fade.Duration = TimeSpan.FromMilliseconds(280);
-            fade.InsertKeyFrame(0f, 0f);
-            fade.InsertKeyFrame(1f, 1f, easing);
-
-            var group = compositor.CreateAnimationGroup();
-            group.Add(slide);
-            group.Add(fade);
             ElementCompositionPreview.SetImplicitShowAnimation(section, group);
         }
     }
