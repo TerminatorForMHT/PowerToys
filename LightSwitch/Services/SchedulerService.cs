@@ -1,3 +1,5 @@
+using Microsoft.Win32;
+
 namespace LightSwitch.Services;
 
 // Central scheduler that evaluates theme boundaries and reacts to settings
@@ -35,12 +37,14 @@ internal sealed class SchedulerService : IDisposable
 
         _running = true;
         SettingsService.Instance.Changed += OnSettingsServiceChanged;
+        SystemEvents.PowerModeChanged += OnSystemPowerModeChanged;
         _thread = new Thread(Run) { IsBackground = true, Name = "SchedulerService" };
         _thread.Start();
     }
 
     public void Dispose()
     {
+        SystemEvents.PowerModeChanged -= OnSystemPowerModeChanged;
         _stopEvent.Set();
         _thread?.Join(5000);
         _thread = null;
@@ -466,7 +470,7 @@ internal sealed class SchedulerService : IDisposable
         _lastTickMinutes = now;
     }
 
-    private static void ApplyTheme(bool shouldBeLight, LightSwitchConfig settings)
+    private static void ApplyTheme(bool shouldBeLight, LightSwitchConfig settings, bool notify = true)
     {
         if (settings.ChangeSystem)
         {
@@ -483,7 +487,65 @@ internal sealed class SchedulerService : IDisposable
         // Swap the desktop wallpaper along with the theme (Auto Dark Mode style).
         WallpaperService.ApplyForTheme(shouldBeLight, settings);
 
-        if (settings.ShowNotifications)
+        if (notify && settings.ShowNotifications)
             NotificationService.ShowThemeChanged(shouldBeLight);
+    }
+
+    // Handles the system resuming from suspend/hibernate. The theme may have
+    // applied correctly (it is a plain registry write) while the wallpaper
+    // change was silently dropped by the desktop shell/DWM, which is still
+    // reinitializing right after resume. Re-apply a moment later, unconditionally,
+    // so the wallpaper is retried even when the theme state already matches.
+    private void OnSystemPowerModeChanged(object? sender, PowerModeChangedEventArgs e)
+    {
+        if (e.Mode != PowerModes.Resume)
+            return;
+
+        Logger.Info("[Scheduler] System resumed; scheduling theme + wallpaper re-apply.");
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                // Give the shell and DWM a moment to re-establish; too early and
+                // the wallpaper call can be swallowed by Windows.
+                await Task.Delay(3000);
+                lock (_stateMutex)
+                    ForceReapply();
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("[Scheduler] Resume re-apply failed: " + ex.Message);
+            }
+        });
+    }
+
+    private void ForceReapply()
+    {
+        var snap = SettingsService.Instance.Snapshot;
+        if (snap.ScheduleMode == ScheduleMode.Off)
+            return;
+
+        int now = GetNowMinutes();
+        bool shouldBeLight;
+        if (snap.ScheduleMode == ScheduleMode.FollowNightLight)
+            shouldBeLight = !NightLightService.IsNightLightEnabled();
+        else
+        {
+            GetEffectiveBoundaries(snap, out int light, out int dark);
+            shouldBeLight = ShouldBeLight(now, light, dark);
+        }
+
+        // Reset cached state so the next normal tick re-evaluates cleanly too
+        // (a long sleep can cross midnight with a new sunrise/sunset).
+        _lastEvaluatedDay = -1;
+        _lastTickMinutes = -1;
+
+        Logger.Info($"[Scheduler] Re-applying after resume: {(shouldBeLight ? "light" : "dark")}.");
+        ApplyTheme(shouldBeLight, snap, notify: false);
+
+        _isSystemLightActive = ThemeService.GetCurrentSystemTheme();
+        _isAppsLightActive = ThemeService.GetCurrentAppsTheme();
+        _lastAppliedMode = snap.ScheduleMode;
+        _lastTickMinutes = now;
     }
 }

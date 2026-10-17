@@ -242,6 +242,15 @@ public static class WallpaperService
             var monitorIds = GetActiveMonitorIds();
             bool anyChanged = false;
 
+            if (monitorIds.Count == 0)
+            {
+                // Post-resume race: the shell may not have re-enumerated the desktop
+                // topology yet. Fall back to the all-monitor path instead of skipping.
+                Logger.Warn("[Wallpaper] No active monitors enumerated; using all-monitor fallback.");
+                SetWallpaper(primary);
+                return;
+            }
+
             for (int i = 0; i < monitorIds.Count; i++)
             {
                 string target = primary;
